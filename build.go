@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"archive/tar"
@@ -10,10 +10,10 @@ import (
 	"os"
 
 	"github.com/bissyio/slugcmplr/cmplr"
+	heroku "github.com/heroku/heroku-go/v5"
 	"github.com/spf13/cobra"
 )
 
-// buildCmd represents the build command
 var buildCmd = &cobra.Command{
 	Use:   "build [application]",
 	Short: "Triggers a build of your application.",
@@ -71,15 +71,21 @@ your Procfile if it is defined.`,
 		debug(os.Stdout, "Get URL: %v", urls.Get)
 		debug(os.Stdout, "Put URL: %v", urls.Put)
 
-		blob := &cmplr.SourceBlob{Checksum: checksum, URL: urls.Get, Version: commit}
-
 		section(os.Stdout, "Synchronising %v to %v...", args[0], compileAppID)
 		if err := cmplr.Synchronise(context.Background(), client, args[0], compileAppID); err != nil {
 			return err
 		}
 
 		section(os.Stdout, "Creating compilation build...")
-		build, err := cmplr.CreateBuild(context.Background(), client, compileAppID, blob)
+		build, err := client.BuildCreate(context.Background(), compileAppID, heroku.BuildCreateOpts{
+			SourceBlob: struct {
+				Checksum *string `json:"checksum,omitempty" url:"checksum,omitempty,key"`
+				URL      *string `json:"url,omitempty" url:"url,omitempty,key"`
+				Version  *string `json:"version,omitempty" url:"version,omitempty,key"`
+			}{
+				Checksum: heroku.String(checksum),
+				URL:      heroku.String(urls.Get),
+				Version:  heroku.String(commit)}})
 		if err != nil {
 			return err
 		}

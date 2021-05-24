@@ -60,24 +60,6 @@ func loadNetrc() (*netrc.Netrc, error) {
 	return netrc.ParseFile(filepath.Join(u.HomeDir, ".netrc"))
 }
 
-type SourceBlob struct {
-	Checksum, URL, Version string
-}
-
-// CreateBuild will create and trigger a build on the CompileApplication for the SourceBlob,
-// the buildpacks used for the build are extracted from the SourceApplication
-func CreateBuild(ctx context.Context, h *heroku.Service, compile string, tar *SourceBlob) (*heroku.Build, error) {
-	return h.BuildCreate(ctx, compile, heroku.BuildCreateOpts{
-		SourceBlob: struct {
-			Checksum *string `json:"checksum,omitempty" url:"checksum,omitempty,key"`
-			URL      *string `json:"url,omitempty" url:"url,omitempty,key"`
-			Version  *string `json:"version,omitempty" url:"version,omitempty,key"`
-		}{
-			Checksum: heroku.String(tar.Checksum),
-			URL:      heroku.String(tar.URL),
-			Version:  heroku.String(tar.Version)}})
-}
-
 type BlobURL struct {
 	Get, Put string
 }

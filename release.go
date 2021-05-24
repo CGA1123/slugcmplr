@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"context"
@@ -11,8 +11,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// releaseCmd represents the release command
-// TODO: don't require the slug ID, search the compile app for a release that matches the current commit.
 var releaseCmd = &cobra.Command{
 	Use:   "release [target]",
 	Short: "Promotes a release from your compiler app to your target app.",
