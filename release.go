@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/bissyio/slugcmplr/cmplr"
 	heroku "github.com/heroku/heroku-go/v5"
 	"github.com/spf13/cobra"
 )
@@ -16,7 +15,7 @@ var releaseCmd = &cobra.Command{
 	Short: "Promotes a release from your compiler app to your target app.",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		client, err := cmplr.Client()
+		client, err := netrcClient()
 		if err != nil {
 			return err
 		}

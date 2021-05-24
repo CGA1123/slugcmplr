@@ -5,9 +5,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"os/user"
+	"path/filepath"
 
+	"github.com/bgentry/go-netrc/netrc"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	heroku "github.com/heroku/heroku-go/v5"
 	"github.com/spf13/cobra"
 )
 
@@ -76,4 +81,34 @@ func outputStream(out io.Writer, stream string) error {
 	}
 
 	return scn.Err()
+}
+
+func netrcClient() (*heroku.Service, error) {
+	rcfile, err := loadNetrc()
+	if err != nil {
+		return nil, err
+	}
+
+	machine := rcfile.FindMachine("api.heroku.com")
+	if machine == nil {
+		return nil, fmt.Errorf("no .netrc entry for api.heroku.com found")
+	}
+
+	return heroku.NewService(&http.Client{
+		Transport: &heroku.Transport{
+			Username: machine.Login,
+			Password: machine.Password}}), nil
+}
+
+func loadNetrc() (*netrc.Netrc, error) {
+	if fromEnv := os.Getenv("NETRC"); fromEnv != "" {
+		return netrc.ParseFile(fromEnv)
+	}
+
+	u, err := user.Current()
+	if err != nil {
+		return nil, err
+	}
+
+	return netrc.ParseFile(filepath.Join(u.HomeDir, ".netrc"))
 }
