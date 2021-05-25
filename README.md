@@ -1,5 +1,7 @@
 # slugcmplr
 
+![Heroku Documentation](./img/heroku_doc.png)
+
 ```bash
 go get github.com/cga1123/slugcmplr
 ```
