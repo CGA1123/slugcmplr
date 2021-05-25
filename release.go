@@ -15,13 +15,19 @@ var releaseCmd = &cobra.Command{
 	Short: "Promotes a release from your compiler app to your target app.",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		step(os.Stdout, "Building client from .netrc...")
 		client, err := netrcClient()
 		if err != nil {
+			wrn(os.Stderr, "error creating client from .netrc: %v", err)
+
 			return err
 		}
 
+		step(os.Stdout, "Fetching HEAD commit...")
 		hash, err := commit()
 		if err != nil {
+			wrn(os.Stderr, "error detecting HEAD commit: %v", err)
+
 			return err
 		}
 
@@ -29,17 +35,23 @@ var releaseCmd = &cobra.Command{
 		log(os.Stdout, "Finding correct release...")
 		releases, err := client.ReleaseList(context.Background(), compileAppID, nil)
 		if err != nil {
+			wrn(os.Stderr, "error fetching releases from %v: %v", compileAppID, err)
+
 			return err
 		}
 		description := fmt.Sprintf("Deploy %s", hash[:7])
 		var compileRelease *heroku.Release
 		for _, release := range releases {
+			dbg(os.Stdout, "release ID: %v, release Desc: %v", release.ID, release.Description)
+
 			if strings.HasPrefix(release.Description, description) {
 				compileRelease = &release
 				break
 			}
 		}
 		if compileRelease == nil {
+			wrn(os.Stderr, "failed to find a release for %v on %v", hash, compileAppID)
+
 			return fmt.Errorf("could not find release on compile app for %v", hash)
 		}
 
@@ -50,11 +62,15 @@ var releaseCmd = &cobra.Command{
 			Slug: compileRelease.Slug.ID, Description: heroku.String(hash),
 		})
 		if err != nil {
+			wrn(os.Stdout, "error promoting slug: %v", err)
+
 			return err
 		}
 
 		if prodRelease.OutputStreamURL != nil {
 			return outputStream(os.Stdout, *prodRelease.OutputStreamURL)
+		} else {
+			dbg(os.Stdout, "No output stream for release %v", prodRelease.ID)
 		}
 
 		return nil
