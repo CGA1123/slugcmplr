@@ -55,13 +55,16 @@ func dbg(w io.Writer, format string, a ...interface{}) {
 }
 
 func commit() (string, error) {
+	step(os.Stdout, "Fetching HEAD commit...")
 	r, err := git.PlainOpen(".")
 	if err != nil {
+		wrn(os.Stderr, "error detecting HEAD commit: %v", err)
 		return "", err
 	}
 
 	hsh, err := r.ResolveRevision(plumbing.Revision("HEAD"))
 	if err != nil {
+		wrn(os.Stderr, "error detecting HEAD commit: %v", err)
 		return "", err
 	}
 
@@ -88,8 +91,10 @@ func outputStream(out io.Writer, stream string) error {
 }
 
 func netrcClient() (*heroku.Service, error) {
+	step(os.Stdout, "Building client from .netrc...")
 	rcfile, err := loadNetrc()
 	if err != nil {
+		wrn(os.Stderr, "error creating client from .netrc: %v", err)
 		return nil, err
 	}
 

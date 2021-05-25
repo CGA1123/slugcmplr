@@ -15,19 +15,13 @@ var releaseCmd = &cobra.Command{
 	Short: "Promotes a release from your compiler app to your target app.",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		step(os.Stdout, "Building client from .netrc...")
 		client, err := netrcClient()
 		if err != nil {
-			wrn(os.Stderr, "error creating client from .netrc: %v", err)
-
 			return err
 		}
 
-		step(os.Stdout, "Fetching HEAD commit...")
 		hash, err := commit()
 		if err != nil {
-			wrn(os.Stderr, "error detecting HEAD commit: %v", err)
-
 			return err
 		}
 
@@ -72,6 +66,11 @@ var releaseCmd = &cobra.Command{
 		} else {
 			dbg(os.Stdout, "No output stream for release %v", prodRelease.ID)
 		}
+
+		// TODO: Wait until release status is success.
+		// If release fails, error.
+		// Should there be a timeout on how long we wait for a release? (60s?)
+		// Sometimes Heroku is having issues...
 
 		return nil
 	},

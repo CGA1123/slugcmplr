@@ -31,19 +31,13 @@ create a standard Heroku build. The build will _not_ run the release task in
 your Procfile if it is defined.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		step(os.Stdout, "Building client from .netrc...")
 		client, err := netrcClient()
 		if err != nil {
-			wrn(os.Stderr, "error creating client from .netrc: %v", err)
-
 			return err
 		}
 
-		step(os.Stdout, "Fetching HEAD commit...")
 		commit, err := commit()
 		if err != nil {
-			wrn(os.Stderr, "error detecting HEAD commit: %v", err)
-
 			return err
 		}
 
