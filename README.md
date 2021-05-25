@@ -26,3 +26,10 @@ run any release task (such as any DB migrations) during the compilation phase.
 The `release` task performs a 'slug promotion' (a slug is the name Heroku gives
 the artifact of a build) which transfers your application from your compile app
 to your production app and triggers a normal Heroku release phase.
+
+
+---
+
+For more background on this you might find [this] Medium article helpful.
+
+[this]: https://medium.com/carwow-product-engineering/speeding-up-our-heroku-deploys-by-35-percent-f9fa6f6cf404
