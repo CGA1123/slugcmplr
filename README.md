@@ -1,5 +1,7 @@
 # slugcmplr
 
+Making this process a little easier! ([src](https://devcenter.heroku.com/articles/build-and-release-using-the-api))
+
 ![Heroku Documentation](./img/heroku_doc.png)
 
 ```bash
