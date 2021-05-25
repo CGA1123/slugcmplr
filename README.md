@@ -36,7 +36,8 @@ currently making use of the `heroku` command during CI, you should already be
 logging in somehow and have no issues.
 
 Otherwise populating your `.netrc` should be a case of adding something
-equivalent to the following script:
+equivalent to the following script (assuming the `HEROKU_EMAIL` and
+`HEROKU_API_KEY` are correctly populated environment variables):
 
 ```bash
 cat << EOF >> ${HOME}/.netrc
