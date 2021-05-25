@@ -51,6 +51,10 @@ machine api.heroku.com
 EOF
 ```
 
+By default, `slugcmplr` will look in `${HOME}/.netrc` for the credentials,
+however it will respect the `${NETRC}` environment variable if set and
+non-empty.
+
 ---
 
 For more background on this you might find [this] Medium article helpful.
