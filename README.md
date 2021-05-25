@@ -28,6 +28,24 @@ the artifact of a build) which transfers your application from your compile app
 to your production app and triggers a normal Heroku release phase.
 
 
+## Authentication
+
+The `slugcmplr` CLI looks for credentials to `api.heroku.com` in your `.netrc`
+file, this is the same technique used by [`heroku/cli`] and so if you are
+currently making use of the `heroku` command during CI, you should already be
+logging in somehow and have no issues.
+
+Otherwise populating your `.netrc` should be a case of adding something
+equivalent to the following script:
+
+```bash
+cat << EOF >> ${HOME}/.netrc
+machine api.heroku.com
+  login ${HEROKU_EMAIL}
+  password ${HEROKU_API_KEY}
+EOF
+```
+
 ---
 
 For more background on this you might find [this] Medium article helpful.
