@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -25,42 +26,25 @@ const envVar = "SLUGCMPLR"
 func build(production, compile, commit string, client *heroku.Service) error {
 	step(os.Stdout, "Compiling %v via %v for commit %v", production, compile, commit[:7])
 
-	exist, err := procfileExist()
-	if err != nil {
-		wrn(os.Stderr, "error detecting procfile: %v", err)
+	if err := escapeReleaseTask(); err != nil {
+		wrn(os.Stderr, "error escaping release task: %v", err)
 
-		return fmt.Errorf("error detecting procfile: %v", err)
+		return fmt.Errorf("error escaping release task: %v", err)
 	}
-
-	if exist {
-		log(os.Stdout, "Procfile detected. Escaping release task...")
-		if err := escapeReleaseTask("./Procfile"); err != nil {
-			wrn(os.Stderr, "error escaping release task: %v", err)
-
-			return fmt.Errorf("error escaping release task: %v", err)
-		}
-	} else {
-		log(os.Stdout, "No Procfile detected")
-	}
-
-	// Tar it up
-	sha := sha256.New()
-	archive := &bytes.Buffer{}
 
 	step(os.Stdout, "Creating source code tarball...")
-	if err := targz(".", tar.FormatGNU, archive, sha); err != nil {
+	tarball, err := targz()
+	if err != nil {
 		wrn(os.Stderr, "error creating tarball: %v", err)
 
 		return fmt.Errorf("error creating tarball: %v", err)
 	}
 
-	checksum := "SHA256:" + hex.EncodeToString(sha.Sum(nil))
-
-	log(os.Stdout, "Checksum: %v", checksum)
-	log(os.Stdout, "Size: %v", archive.Len())
+	log(os.Stdout, "Checksum: %v", tarball.checksum)
+	log(os.Stdout, "Size: %v", tarball.blob.Len())
 
 	step(os.Stdout, "Uploading source code tarball...")
-	src, err := upload(context.Background(), client, archive)
+	src, err := upload(context.Background(), client, tarball.blob)
 	if err != nil {
 		return err
 	}
@@ -82,7 +66,7 @@ func build(production, compile, commit string, client *heroku.Service) error {
 			URL      *string `json:"url,omitempty" url:"url,omitempty,key"`
 			Version  *string `json:"version,omitempty" url:"version,omitempty,key"`
 		}{
-			Checksum: heroku.String(checksum),
+			Checksum: heroku.String(tarball.checksum),
 			URL:      heroku.String(src.SourceBlob.GetURL),
 			Version:  heroku.String(commit)}})
 	if err != nil {
@@ -111,24 +95,17 @@ func build(production, compile, commit string, client *heroku.Service) error {
 	return nil
 }
 
-func procfileExist() (bool, error) {
-	if fi, err := os.Stat("./Procfile"); err == nil {
-		return fi.Mode().IsRegular(), nil
-	} else if os.IsNotExist(err) {
-		return false, nil
-	} else {
-		return false, err
-	}
-}
-
-// escapeReleaseTask rewrites the Procfile at the given path, adding
-// a short-circuit operator to the release task if EnvVar is set.
-//
-// This ensures that the release task is a noop when compiling slugs.
-func escapeReleaseTask(path string) error {
-	f, err := os.OpenFile(path, os.O_RDWR, 0755)
+func escapeReleaseTask() error {
+	f, err := os.OpenFile("./Procfile", os.O_RDWR, 0755)
 	if err != nil {
-		return fmt.Errorf("error opening Procfile: %w", err)
+		// Procfile doesn't exists, that's ok :)
+		if errors.Is(err, os.ErrNotExist) {
+			log(os.Stdout, "No Procfile detected")
+
+			return nil
+		} else {
+			return fmt.Errorf("error opening Procfile: %w", err)
+		}
 	}
 
 	procf, err := procfile.Read(f)
@@ -137,14 +114,15 @@ func escapeReleaseTask(path string) error {
 	}
 
 	cmd, ok := procf.Entrypoint("release")
-
-	// no release command specified, no need to escape it!
 	if !ok {
+		log(os.Stdout, "No release task specified")
 		return f.Close()
 	}
 
+	log(os.Stdout, "Escaping release task: %v", cmd)
 	procf.Add("release", fmt.Sprintf("[ ! -z $%v ] || %v", envVar, cmd))
 
+	log(os.Stdout, "Writing Procfile")
 	// Truncate the Procfile
 	if err := f.Truncate(0); err != nil {
 		return err
@@ -163,14 +141,22 @@ func escapeReleaseTask(path string) error {
 	return f.Close()
 }
 
+type tarball struct {
+	blob     *bytes.Buffer
+	checksum string
+}
+
 // targz will walk srcDirPath recursively and write the correspoding G-Zipped Tar
 // Archive to the given writers.
-func targz(srcDirPath string, format tar.Format, writers ...io.Writer) error {
-	if _, err := os.Stat(srcDirPath); err != nil {
-		return fmt.Errorf("source directory does not exist: %w", err)
+func targz() (*tarball, error) {
+	srcDirPath := "."
+	if _, err := os.Stat("."); err != nil {
+		return nil, fmt.Errorf("source directory does not exist: %w", err)
 	}
 
-	mw := io.MultiWriter(writers...)
+	sha, archive := sha256.New(), &bytes.Buffer{}
+
+	mw := io.MultiWriter(sha, archive)
 
 	gzw := gzip.NewWriter(mw)
 	defer gzw.Close()
@@ -178,7 +164,7 @@ func targz(srcDirPath string, format tar.Format, writers ...io.Writer) error {
 	tw := tar.NewWriter(gzw)
 	defer tw.Close()
 
-	return filepath.WalkDir(srcDirPath, func(file string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(srcDirPath, func(file string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -198,7 +184,11 @@ func targz(srcDirPath string, format tar.Format, writers ...io.Writer) error {
 		}
 
 		header.Name = strings.TrimPrefix(strings.TrimPrefix(file, srcDirPath), string(filepath.Separator))
-		header.Format = format
+
+		// Heroku requires GNU Tar format (at least for slugs, maybe not for build sources?)
+		//
+		// https://devcenter.heroku.com/articles/platform-api-deploying-slugs#create-slug-archive
+		header.Format = tar.FormatGNU
 
 		if err := tw.WriteHeader(header); err != nil {
 			return err
@@ -208,15 +198,19 @@ func targz(srcDirPath string, format tar.Format, writers ...io.Writer) error {
 		if err != nil {
 			return err
 		}
+		defer f.Close()
 
 		if _, err := io.Copy(tw, f); err != nil {
 			return err
 		}
 
-		f.Close()
-
-		return nil
+		return f.Close()
 	})
+	if err != nil {
+		return nil, fmt.Errorf("error walking directory: %w", err)
+	}
+
+	return &tarball{blob: archive, checksum: fmt.Sprintf("SHA256:%v", hex.EncodeToString(sha.Sum(nil)))}, nil
 }
 
 func synchronise(ctx context.Context, h *heroku.Service, target, compile string) error {
