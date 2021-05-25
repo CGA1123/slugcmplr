@@ -51,3 +51,4 @@ EOF
 For more background on this you might find [this] Medium article helpful.
 
 [this]: https://medium.com/carwow-product-engineering/speeding-up-our-heroku-deploys-by-35-percent-f9fa6f6cf404
+[`heroku/cli`]: https://github.com/heroku/cli
