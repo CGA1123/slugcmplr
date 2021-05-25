@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bissyio/slugcmplr/procfile"
+	"github.com/cga1123/slugcmplr/procfile"
 )
 
 func Contain(t *testing.T, expected, actual []string) {

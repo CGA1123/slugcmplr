@@ -25,7 +25,7 @@ var releaseCmd = &cobra.Command{
 			return err
 		}
 
-		section(os.Stdout, "Releasing %v from %v to %v", hash[:7], compileAppID, args[0])
+		step(os.Stdout, "Releasing %v from %v to %v", hash[:7], compileAppID, args[0])
 		log(os.Stdout, "Finding correct release...")
 		releases, err := client.ReleaseList(context.Background(), compileAppID, nil)
 		if err != nil {
@@ -45,7 +45,7 @@ var releaseCmd = &cobra.Command{
 
 		log(os.Stdout, "Found release %v", compileRelease.ID)
 
-		section(os.Stdout, "Releasing slug %v to %v", compileRelease.Slug.ID, args[0])
+		step(os.Stdout, "Releasing slug %v to %v", compileRelease.Slug.ID, args[0])
 		prodRelease, err := client.ReleaseCreate(context.Background(), args[0], heroku.ReleaseCreateOpts{
 			Slug: compileRelease.Slug.ID, Description: heroku.String(hash),
 		})

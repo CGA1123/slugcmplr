@@ -21,8 +21,6 @@ var (
 	compileAppID string
 )
 
-// rootCmd represents the base command when called without any subcommands
-
 var rootCmd = &cobra.Command{
 	Use:   "slugcmplr",
 	Short: "slugcmplr helps you detach building and releasing Heroku applications",
@@ -33,10 +31,12 @@ func init() {
 }
 
 func main() {
-	cobra.CheckErr(rootCmd.Execute())
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(1)
+	}
 }
 
-func section(w io.Writer, format string, a ...interface{}) {
+func step(w io.Writer, format string, a ...interface{}) {
 	fmt.Fprintf(w, "-----> %s\n", fmt.Sprintf(format, a...))
 }
 
@@ -44,7 +44,11 @@ func log(w io.Writer, format string, a ...interface{}) {
 	fmt.Fprintf(w, "       %s\n", fmt.Sprintf(format, a...))
 }
 
-func debug(w io.Writer, format string, a ...interface{}) {
+func wrn(w io.Writer, format string, a ...interface{}) {
+	fmt.Fprintf(w, " !!    %s\n", fmt.Sprintf(format, a...))
+}
+
+func dbg(w io.Writer, format string, a ...interface{}) {
 	if verbose {
 		log(w, format, a...)
 	}

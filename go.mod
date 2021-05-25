@@ -1,4 +1,4 @@
-module github.com/bissyio/slugcmplr
+module github.com/cga1123/slugcmplr
 
 go 1.16
 
