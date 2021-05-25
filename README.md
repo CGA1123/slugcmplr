@@ -13,7 +13,7 @@ to enable you and your team to detach the building of your Heroku application
 from the releasing of it.
 
 This enables your CI/CD pipeline to run tests and building of your application
-in parallel, potentially reducing the merge to deploy time for your team!
+in parallel, reducing the merge to deploy time for your team!
 
 There are two commands available, `build` and `release` each require a
 `[target]` argument (the name or identifier for your production application)
