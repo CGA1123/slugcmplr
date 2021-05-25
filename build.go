@@ -18,123 +18,97 @@ import (
 
 	"github.com/cga1123/slugcmplr/procfile"
 	heroku "github.com/heroku/heroku-go/v5"
-	"github.com/spf13/cobra"
 )
 
 const envVar = "SLUGCMPLR"
 
-var buildCmd = &cobra.Command{
-	Use:   "build [application]",
-	Short: "Triggers a build of your application.",
-	Long: `The build command will create a clone of your target application and
-create a standard Heroku build. The build will _not_ run the release task in
-your Procfile if it is defined.`,
-	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		client, err := netrcClient()
-		if err != nil {
-			return err
+func build(production, compile, commit string, client *heroku.Service) error {
+	step(os.Stdout, "Compiling %v via %v for commit %v", production, compile, commit[:7])
+
+	exist, err := procfileExist()
+	if err != nil {
+		wrn(os.Stderr, "error detecting procfile: %v", err)
+
+		return fmt.Errorf("error detecting procfile: %v", err)
+	}
+
+	if exist {
+		log(os.Stdout, "Procfile detected. Escaping release task...")
+		if err := escapeReleaseTask("./Procfile"); err != nil {
+			wrn(os.Stderr, "error escaping release task: %v", err)
+
+			return fmt.Errorf("error escaping release task: %v", err)
 		}
+	} else {
+		log(os.Stdout, "No Procfile detected")
+	}
 
-		commit, err := commit()
+	// Tar it up
+	sha := sha256.New()
+	archive := &bytes.Buffer{}
+
+	step(os.Stdout, "Creating source code tarball...")
+	if err := targz(".", tar.FormatGNU, archive, sha); err != nil {
+		wrn(os.Stderr, "error creating tarball: %v", err)
+
+		return fmt.Errorf("error creating tarball: %v", err)
+	}
+
+	checksum := "SHA256:" + hex.EncodeToString(sha.Sum(nil))
+
+	log(os.Stdout, "Checksum: %v", checksum)
+	log(os.Stdout, "Size: %v", archive.Len())
+
+	step(os.Stdout, "Uploading source code tarball...")
+	src, err := upload(context.Background(), client, archive)
+	if err != nil {
+		return err
+	}
+
+	dbg(os.Stdout, "Get URL: %v", src.SourceBlob.GetURL)
+	dbg(os.Stdout, "Put URL: %v", src.SourceBlob.PutURL)
+
+	step(os.Stdout, "Synchronising %v to %v...", production, compile)
+	if err := synchronise(context.Background(), client, production, compile); err != nil {
+		wrn(os.Stderr, "error synchronising applications: %v", err)
+
+		return err
+	}
+
+	step(os.Stdout, "Creating compilation build...")
+	build, err := client.BuildCreate(context.Background(), compile, heroku.BuildCreateOpts{
+		SourceBlob: struct {
+			Checksum *string `json:"checksum,omitempty" url:"checksum,omitempty,key"`
+			URL      *string `json:"url,omitempty" url:"url,omitempty,key"`
+			Version  *string `json:"version,omitempty" url:"version,omitempty,key"`
+		}{
+			Checksum: heroku.String(checksum),
+			URL:      heroku.String(src.SourceBlob.GetURL),
+			Version:  heroku.String(commit)}})
+	if err != nil {
+		wrn(os.Stderr, "error triggering build: %v", err)
+
+		return err
+	}
+
+	if err := outputStream(os.Stdout, build.OutputStreamURL); err != nil {
+		wrn(os.Stdout, "error streaming build output: %v", err)
+
+		return fmt.Errorf("error streaming build output: %v", err)
+	}
+
+	if verbose {
+		build, err := client.BuildInfo(context.Background(), build.App.ID, build.ID)
 		if err != nil {
-			return err
-		}
-
-		step(os.Stdout, "Compiling %v via %v for commit %v", args[0], compileAppID, commit[:7])
-
-		exist, err := procfileExist()
-		if err != nil {
-			wrn(os.Stderr, "error detecting procfile: %v", err)
-
-			return fmt.Errorf("error detecting procfile: %v", err)
-		}
-
-		if exist {
-			log(os.Stdout, "Procfile detected. Escaping release task...")
-			if err := escapeReleaseTask("./Procfile"); err != nil {
-				wrn(os.Stderr, "error escaping release task: %v", err)
-
-				return fmt.Errorf("error escaping release task: %v", err)
-			}
+			dbg(os.Stdout, "error fetching build metadata for debug: %v", err)
 		} else {
-			log(os.Stdout, "No Procfile detected")
+			dbg(os.Stdout, "build ID: %v", build.ID)
+			dbg(os.Stdout, "slug: %v", build.Slug)
+			dbg(os.Stdout, "release: %v", build.Release)
 		}
+	}
 
-		// Tar it up
-		sha := sha256.New()
-		archive := &bytes.Buffer{}
-
-		step(os.Stdout, "Creating source code tarball...")
-		if err := targz(".", tar.FormatGNU, archive, sha); err != nil {
-			wrn(os.Stderr, "error creating tarball: %v", err)
-
-			return fmt.Errorf("error creating tarball: %v", err)
-		}
-
-		checksum := "SHA256:" + hex.EncodeToString(sha.Sum(nil))
-
-		log(os.Stdout, "Checksum: %v", checksum)
-		log(os.Stdout, "Size: %v", archive.Len())
-
-		step(os.Stdout, "Uploading source code tarball...")
-		src, err := upload(context.Background(), client, archive)
-		if err != nil {
-			return err
-		}
-
-		dbg(os.Stdout, "Get URL: %v", src.SourceBlob.GetURL)
-		dbg(os.Stdout, "Put URL: %v", src.SourceBlob.PutURL)
-
-		step(os.Stdout, "Synchronising %v to %v...", args[0], compileAppID)
-		if err := synchronise(context.Background(), client, args[0], compileAppID); err != nil {
-			wrn(os.Stderr, "error synchronising applications: %v", err)
-
-			return err
-		}
-
-		step(os.Stdout, "Creating compilation build...")
-		build, err := client.BuildCreate(context.Background(), compileAppID, heroku.BuildCreateOpts{
-			SourceBlob: struct {
-				Checksum *string `json:"checksum,omitempty" url:"checksum,omitempty,key"`
-				URL      *string `json:"url,omitempty" url:"url,omitempty,key"`
-				Version  *string `json:"version,omitempty" url:"version,omitempty,key"`
-			}{
-				Checksum: heroku.String(checksum),
-				URL:      heroku.String(src.SourceBlob.GetURL),
-				Version:  heroku.String(commit)}})
-		if err != nil {
-			wrn(os.Stderr, "error triggering build: %v", err)
-
-			return err
-		}
-
-		if err := outputStream(os.Stdout, build.OutputStreamURL); err != nil {
-			wrn(os.Stdout, "error streaming build output: %v", err)
-
-			return fmt.Errorf("error streaming build output: %v", err)
-		}
-
-		if verbose {
-			build, err := client.BuildInfo(context.Background(), build.App.ID, build.ID)
-			if err != nil {
-				dbg(os.Stdout, "error fetching build metadata for debug: %v", err)
-			} else {
-				dbg(os.Stdout, "build ID: %v", build.ID)
-				dbg(os.Stdout, "slug: %v", build.Slug)
-				dbg(os.Stdout, "release: %v", build.Release)
-			}
-		}
-
-		return nil
-	},
-}
-
-func init() {
-	buildCmd.Flags().StringVar(&compileAppID, "compiler", "", "The Heroku application to compile on (required)")
-	buildCmd.MarkFlagRequired("compiler")
-
-	rootCmd.AddCommand(buildCmd)
+	return nil
 }
 
 func procfileExist() (bool, error) {

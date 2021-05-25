@@ -26,8 +26,64 @@ var rootCmd = &cobra.Command{
 	Short: "slugcmplr helps you detach building and releasing Heroku applications",
 }
 
+var buildCmd = &cobra.Command{
+	Use:   "build [application]",
+	Short: "Triggers a build of your application.",
+	Long: `The build command will create a clone of your target application and
+create a standard Heroku build. The build will _not_ run the release task in
+your Procfile if it is defined.`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		production := args[0]
+		compile := compileAppID
+
+		client, err := netrcClient()
+		if err != nil {
+			return err
+		}
+
+		commit, err := commit()
+		if err != nil {
+			return err
+		}
+
+		return build(production, compile, commit, client)
+	},
+}
+
+var releaseCmd = &cobra.Command{
+	Use:   "release [target]",
+	Short: "Promotes a release from your compiler app to your target app.",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		production := args[0]
+		compile := compileAppID
+
+		client, err := netrcClient()
+		if err != nil {
+			return err
+		}
+
+		commit, err := commit()
+		if err != nil {
+			return err
+		}
+
+		return release(production, compile, commit, client)
+	},
+}
+
 func init() {
+	buildCmd.Flags().StringVar(&compileAppID, "compiler", "",
+		"The Heroku application to compile on (required)")
+	buildCmd.MarkFlagRequired("compiler")
+
+	releaseCmd.Flags().StringVar(&compileAppID, "compiler", "", "The Heroku application compiled on (required)")
+	releaseCmd.MarkFlagRequired("compiler")
+	rootCmd.AddCommand(releaseCmd)
+
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
+	rootCmd.AddCommand(buildCmd)
 }
 
 func main() {
