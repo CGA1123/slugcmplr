@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"time"
 
 	"github.com/bgentry/go-netrc/netrc"
 	git "github.com/go-git/go-git/v5"
@@ -128,6 +129,14 @@ func commit() (string, error) {
 }
 
 func outputStream(out io.Writer, stream string) error {
+	return outputStreamAttempt(out, stream, 0)
+}
+
+func outputStreamAttempt(out io.Writer, stream string, attempt int) error {
+	if attempt >= 5 {
+		return fmt.Errorf("failed to fetch outputStream after 5 attempts.")
+	}
+
 	resp, err := http.Get(stream)
 	if err != nil {
 		return err
@@ -135,7 +144,14 @@ func outputStream(out io.Writer, stream string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode > 399 {
-		return fmt.Errorf("output stream returned HTTP status: %v", resp.Status)
+		if resp.StatusCode == 404 {
+			log(os.Stdout, "Output stream 404, likely the process is still starting up. Trying again in 2s...")
+			time.Sleep(2 * time.Second)
+
+			return outputStreamAttempt(out, stream, attempt+1)
+		} else {
+			return fmt.Errorf("output stream returned HTTP status: %v", resp.Status)
+		}
 	}
 
 	scn := bufio.NewScanner(resp.Body)

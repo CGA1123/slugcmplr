@@ -50,9 +50,6 @@ func build(production, compile, commit string, client *heroku.Service) error {
 		return err
 	}
 
-	dbg(os.Stdout, "Get URL: %v", src.SourceBlob.GetURL)
-	dbg(os.Stdout, "Put URL: %v", src.SourceBlob.PutURL)
-
 	step(os.Stdout, "Synchronising %v to %v...", production, compile)
 	if err := synchronise(context.Background(), client, production, compile); err != nil {
 		wrn(os.Stderr, "error synchronising applications: %v", err)
