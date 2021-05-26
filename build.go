@@ -86,10 +86,6 @@ func build(production, compile, commit string, client *heroku.Service) error {
 
 	step(os.Stdout, "Verifying build status...")
 
-	// TODO: What happens if the output stream fails (e.g. 404 due to being too fast)
-	// and we fall through to here? waiting only 25s for a build to complete is optimistic!
-	//
-	// maybe have retry behaviour on the output stream?
 	for i := 0; i < 5; i++ {
 		build, err := client.BuildInfo(context.Background(), compile, build.ID)
 		if err != nil {
