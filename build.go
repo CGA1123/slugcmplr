@@ -76,6 +76,11 @@ func build(production, compile, commit string, client *heroku.Service) error {
 		return err
 	}
 
+	dbg(os.Stdout, "output stream: %v", build.OutputStreamURL)
+	dbg(os.Stdout, "source URL: %v", build.SourceBlob.URL)
+	dbg(os.Stdout, "source Checksum: %v", ptrStr(build.SourceBlob.Checksum))
+	dbg(os.Stdout, "source Version: %v", ptrStr(build.SourceBlob.Version))
+
 	if err := outputStream(os.Stdout, build.OutputStreamURL); err != nil {
 		wrn(os.Stdout, "error streaming build output: %v", err)
 

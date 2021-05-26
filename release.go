@@ -35,7 +35,7 @@ func release(production, compile, commit string, client *heroku.Service) error {
 		return fmt.Errorf("could not find release on compile app for %v", commit)
 	}
 
-	log(os.Stdout, "Found release %v", compileRelease.ID)
+	log(os.Stdout, "Found release %v (v%v)", compileRelease.ID, compileRelease.Version)
 
 	step(os.Stdout, "Releasing slug %v to %v", compileRelease.Slug.ID, production)
 	prodRelease, err := client.ReleaseCreate(context.Background(), production, heroku.ReleaseCreateOpts{

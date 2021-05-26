@@ -177,3 +177,11 @@ func loadNetrc() (*netrc.Netrc, error) {
 
 	return netrc.ParseFile(filepath.Join(u.HomeDir, ".netrc"))
 }
+
+func ptrStr(ptr *string) string {
+	if ptr == nil {
+		return "<NIL>"
+	}
+
+	return *ptr
+}
