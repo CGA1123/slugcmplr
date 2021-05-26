@@ -243,6 +243,16 @@ func targz() (*tarball, error) {
 		return nil, fmt.Errorf("error walking directory: %w", err)
 	}
 
+	// explicitly close to ensure we flush to archive and sha, make sure we get
+	// a correct checksum.
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
+
+	if err := gzw.Close(); err != nil {
+		return nil, err
+	}
+
 	return &tarball{blob: archive, checksum: fmt.Sprintf("SHA256:%v", hex.EncodeToString(sha.Sum(nil)))}, nil
 }
 
