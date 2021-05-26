@@ -134,7 +134,7 @@ func outputStream(out io.Writer, stream string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode > 399 {
 		return fmt.Errorf("output stream returned HTTP status: %v", resp.Status)
 	}
 
