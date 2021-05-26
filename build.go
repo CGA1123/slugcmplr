@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/cga1123/slugcmplr/procfile"
 	heroku "github.com/heroku/heroku-go/v5"
@@ -81,18 +82,45 @@ func build(production, compile, commit string, client *heroku.Service) error {
 		return fmt.Errorf("error streaming build output: %v", err)
 	}
 
-	if verbose {
-		build, err := client.BuildInfo(context.Background(), build.App.ID, build.ID)
+	step(os.Stdout, "Verifying build status...")
+
+	// TODO: What happens if the output stream fails (e.g. 404 due to being too fast)
+	// and we fall through to here? waiting only 25s for a build to complete is optimistic!
+	//
+	// maybe have retry behaviour on the output stream?
+	for i := 0; i < 5; i++ {
+		build, err := client.BuildInfo(context.Background(), compile, build.ID)
 		if err != nil {
-			dbg(os.Stdout, "error fetching build metadata for debug: %v", err)
-		} else {
-			dbg(os.Stdout, "build ID: %v", build.ID)
+			wrn(os.Stderr, "error checking build state: %v", err)
+
+			return err
+		}
+
+		switch status := build.Status; status {
+		case "pending":
+			log(os.Stderr, "build is still pending...")
+			time.Sleep(5 * time.Second)
+		case "failed":
+			wrn(os.Stderr, "build failed, try again?")
+
+			return fmt.Errorf("build failed, try again?")
+		case "succeeded":
+			log(os.Stdout, "build succeeded")
+			dbg(os.Stdout, "ID: %v", build.ID)
 			dbg(os.Stdout, "slug: %v", build.Slug)
 			dbg(os.Stdout, "release: %v", build.Release)
+
+			return nil
+		default:
+			wrn(os.Stderr, "unknown release status: %v", status)
+
+			return fmt.Errorf("unknown release status returned by Heroku: %v", status)
 		}
 	}
 
-	return nil
+	wrn(os.Stderr, "build is still pending, aborting checks.")
+
+	return fmt.Errorf("build is still pending after a while.")
 }
 
 func escapeReleaseTask() error {

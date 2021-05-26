@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	heroku "github.com/heroku/heroku-go/v5"
 )
@@ -47,15 +48,47 @@ func release(production, compile, commit string, client *heroku.Service) error {
 	}
 
 	if prodRelease.OutputStreamURL != nil {
-		return outputStream(os.Stdout, *prodRelease.OutputStreamURL)
+		if err := outputStream(os.Stdout, *prodRelease.OutputStreamURL); err != nil {
+			wrn(os.Stderr, "error streaming release logs: %v", err)
+		}
 	} else {
 		dbg(os.Stdout, "No output stream for release %v", prodRelease.ID)
 	}
+	log(os.Stdout, "Done.")
 
-	// TODO: Wait until release status is success.
-	// If release fails, error.
-	// Should there be a timeout on how long we wait for a release? (60s?)
-	// Sometimes Heroku is having issues...
+	step(os.Stdout, "Verifying release status...")
 
-	return nil
+	for i := 0; i < 5; i++ {
+		release, err := client.ReleaseInfo(context.Background(), production, prodRelease.ID)
+		if err != nil {
+			wrn(os.Stderr, "error checking release state: %v", err)
+
+			return err
+		}
+
+		switch status := release.Status; status {
+		case "pending":
+			log(os.Stderr, "release is still pending...")
+			time.Sleep(5 * time.Second)
+		case "failed":
+			wrn(os.Stderr, "release failed, try again?")
+
+			return fmt.Errorf("release failed, try again?")
+		case "succeeded":
+			log(os.Stdout, "release succeeded")
+
+			return nil
+		default:
+			wrn(os.Stderr, "unknown release status: %v", status)
+
+			return fmt.Errorf("unknown release status returned by Heroku: %v", status)
+		}
+
+	}
+
+	wrn(os.Stderr, "release is still pending, aborting checks.")
+	wrn(os.Stderr, "this may be due to Heroku being unable or slow to provision release dynos")
+	wrn(os.Stderr, "or a very slow release task, check the Heroku logs or Heroku status pages")
+
+	return fmt.Errorf("release is still pending after a while.")
 }
