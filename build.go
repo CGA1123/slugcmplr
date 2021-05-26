@@ -182,13 +182,12 @@ type tarball struct {
 // targz will walk srcDirPath recursively and write the correspoding G-Zipped Tar
 // Archive to the given writers.
 func targz() (*tarball, error) {
-	srcDirPath := "."
-	if _, err := os.Stat("."); err != nil {
-		return nil, fmt.Errorf("source directory does not exist: %w", err)
+	srcDirPath, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("error getting current directory: %w", err)
 	}
 
 	sha, archive := sha256.New(), &bytes.Buffer{}
-
 	mw := io.MultiWriter(sha, archive)
 
 	gzw := gzip.NewWriter(mw)
