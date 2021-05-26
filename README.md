@@ -4,9 +4,17 @@ Making this process a little easier! ([src](https://devcenter.heroku.com/article
 
 ![Heroku Documentation](./img/heroku_doc.png)
 
+## Install
+
+With the `go` toolchain installed:
 ```bash
 go get github.com/cga1123/slugcmplr
 ```
+
+There are also precompiled binaries and their associated checksums are
+available attached to tagged [releases].
+
+## Info
 
 `slugcmplr` is a CLI tool that interfaces with the Heroku Platform API in order
 to enable you and your team to detach the building of your Heroku application
@@ -61,3 +69,4 @@ For more background on this you might find [this] Medium article helpful.
 
 [this]: https://medium.com/carwow-product-engineering/speeding-up-our-heroku-deploys-by-35-percent-f9fa6f6cf404
 [`heroku/cli`]: https://github.com/heroku/cli
+[releases]: https://github.com/cga1123/slugcmplr/releases
