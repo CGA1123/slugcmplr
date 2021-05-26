@@ -13,7 +13,8 @@ import (
 func release(production, compile, commit string, client *heroku.Service) error {
 	step(os.Stdout, "Releasing %v from %v to %v", commit[:7], compile, production)
 	log(os.Stdout, "Finding correct release...")
-	releases, err := client.ReleaseList(context.Background(), compile, nil)
+	releases, err := client.ReleaseList(context.Background(), compile, &heroku.ListRange{
+		Descending: true, Field: "version"})
 	if err != nil {
 		wrn(os.Stderr, "error fetching releases from %v: %v", compile, err)
 
