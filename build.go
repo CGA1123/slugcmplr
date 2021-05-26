@@ -122,7 +122,7 @@ func build(production, compile, commit string, client *heroku.Service) error {
 
 	wrn(os.Stderr, "build is still pending, aborting checks.")
 
-	return fmt.Errorf("build is still pending after a while.")
+	return fmt.Errorf("build is still pending after a while")
 }
 
 func escapeReleaseTask() error {

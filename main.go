@@ -134,7 +134,7 @@ func outputStream(out io.Writer, stream string) error {
 
 func outputStreamAttempt(out io.Writer, stream string, attempt int) error {
 	if attempt >= 5 {
-		return fmt.Errorf("failed to fetch outputStream after 5 attempts.")
+		return fmt.Errorf("failed to fetch outputStream after 5 attempts")
 	}
 
 	resp, err := http.Get(stream)

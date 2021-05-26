@@ -91,5 +91,5 @@ func release(production, compile, commit string, client *heroku.Service) error {
 	wrn(os.Stderr, "this may be due to Heroku being unable or slow to provision release dynos")
 	wrn(os.Stderr, "or a very slow release task, check the Heroku logs or Heroku status pages")
 
-	return fmt.Errorf("release is still pending after a while.")
+	return fmt.Errorf("release is still pending after a while")
 }
