@@ -196,7 +196,7 @@ func targz() (*tarball, error) {
 	tw := tar.NewWriter(gzw)
 	defer tw.Close()
 
-	err := filepath.WalkDir(srcDirPath, func(file string, d fs.DirEntry, err error) error {
+	walk := func(file string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -237,8 +237,9 @@ func targz() (*tarball, error) {
 		}
 
 		return f.Close()
-	})
-	if err != nil {
+	}
+
+	if err := filepath.WalkDir(srcDirPath, walk); err != nil {
 		return nil, fmt.Errorf("error walking directory: %w", err)
 	}
 
