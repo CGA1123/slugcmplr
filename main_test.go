@@ -76,7 +76,7 @@ func setupProdApp(t *testing.T, h *heroku.Service, fixture string) (string, erro
 	t.Logf("(%v) checking build status...", app.App.Name)
 
 	if err := waitForBuild(t, h, app); err != nil {
-		return app.App.Name, fmt.Errorf(err.Error())
+		return app.App.Name, err
 	}
 
 	return app.App.Name, nil
