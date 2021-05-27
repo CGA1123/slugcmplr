@@ -1,0 +1,10 @@
+{
+  "buildpacks": [ { "url": "heroku/go" } ],
+  "stack": "heroku-20",
+  "env": {
+    "RANDOM_SECRET": { "generator": "secret" },
+    "FOO": { "value": "BAR" },
+    "PING": { "value": "PONG" }
+  }
+}
+

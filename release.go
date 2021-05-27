@@ -10,10 +10,10 @@ import (
 	heroku "github.com/heroku/heroku-go/v5"
 )
 
-func release(production, compile, commit string, client *heroku.Service) error {
+func release(ctx context.Context, production, compile, commit string, client *heroku.Service) error {
 	step(os.Stdout, "Releasing %v from %v to %v", commit[:7], compile, production)
 	log(os.Stdout, "Finding correct release...")
-	releases, err := client.ReleaseList(context.Background(), compile, &heroku.ListRange{
+	releases, err := client.ReleaseList(ctx, compile, &heroku.ListRange{
 		Descending: true, Field: "version"})
 	if err != nil {
 		wrn(os.Stderr, "error fetching releases from %v: %v", compile, err)
@@ -39,7 +39,7 @@ func release(production, compile, commit string, client *heroku.Service) error {
 	log(os.Stdout, "Found release %v (v%v)", compileRelease.ID, compileRelease.Version)
 
 	step(os.Stdout, "Releasing slug %v to %v", compileRelease.Slug.ID, production)
-	prodRelease, err := client.ReleaseCreate(context.Background(), production, heroku.ReleaseCreateOpts{
+	prodRelease, err := client.ReleaseCreate(ctx, production, heroku.ReleaseCreateOpts{
 		Slug: compileRelease.Slug.ID, Description: heroku.String(commit),
 	})
 	if err != nil {
@@ -60,7 +60,7 @@ func release(production, compile, commit string, client *heroku.Service) error {
 	step(os.Stdout, "Verifying release status...")
 
 	for i := 0; i < 5; i++ {
-		release, err := client.ReleaseInfo(context.Background(), production, prodRelease.ID)
+		release, err := client.ReleaseInfo(ctx, production, prodRelease.ID)
 		if err != nil {
 			wrn(os.Stderr, "error checking release state: %v", err)
 

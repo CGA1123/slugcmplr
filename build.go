@@ -24,7 +24,7 @@ import (
 
 const envVar = "SLUGCMPLR"
 
-func build(production, compile, commit string, client *heroku.Service) error {
+func build(ctx context.Context, production, compile, commit string, client *heroku.Service) error {
 	step(os.Stdout, "Compiling %v via %v for commit %v", production, compile, commit[:7])
 
 	if err := escapeReleaseTask(); err != nil {
@@ -45,20 +45,20 @@ func build(production, compile, commit string, client *heroku.Service) error {
 	log(os.Stdout, "Size: %v", tarball.blob.Len())
 
 	step(os.Stdout, "Uploading source code tarball...")
-	src, err := upload(context.Background(), client, tarball.blob)
+	src, err := upload(ctx, client, tarball.blob)
 	if err != nil {
 		return err
 	}
 
 	step(os.Stdout, "Synchronising %v to %v...", production, compile)
-	if err := synchronise(context.Background(), client, production, compile); err != nil {
+	if err := synchronise(ctx, client, production, compile); err != nil {
 		wrn(os.Stderr, "error synchronising applications: %v", err)
 
 		return err
 	}
 
 	step(os.Stdout, "Creating compilation build...")
-	build, err := client.BuildCreate(context.Background(), compile, heroku.BuildCreateOpts{
+	build, err := client.BuildCreate(ctx, compile, heroku.BuildCreateOpts{
 		SourceBlob: struct {
 			Checksum *string `json:"checksum,omitempty" url:"checksum,omitempty,key"`
 			URL      *string `json:"url,omitempty" url:"url,omitempty,key"`
@@ -87,7 +87,7 @@ func build(production, compile, commit string, client *heroku.Service) error {
 	step(os.Stdout, "Verifying build status...")
 
 	for i := 0; i < 5; i++ {
-		build, err := client.BuildInfo(context.Background(), compile, build.ID)
+		build, err := client.BuildInfo(ctx, compile, build.ID)
 		if err != nil {
 			wrn(os.Stderr, "error checking build state: %v", err)
 
@@ -249,6 +249,8 @@ func targz() (*tarball, error) {
 	return &tarball{blob: archive, checksum: fmt.Sprintf("SHA256:%v", hex.EncodeToString(sha.Sum(nil)))}, nil
 }
 
+// TODO: Should App Features be synchronised? They could affect the build (e.g. by injecting additional env vars)
+// Should the dyno formation be explicitly set to 0?
 func synchronise(ctx context.Context, h *heroku.Service, target, compile string) error {
 	bpi, err := h.BuildpackInstallationList(ctx, target, nil)
 	if err != nil {
