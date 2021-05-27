@@ -2,7 +2,7 @@ name: acceptance
 
 on:
   pull_request:
-    types: [labelled]
+    types: [labeled]
     steps:
     - uses: actions/checkout@v2.3.4
     - uses: actions/setup-go@v2
