@@ -93,7 +93,7 @@ func waitForBuild(t *testing.T, h *heroku.Service, app *heroku.AppSetup) error {
 			return fmt.Errorf("(%v) error fetching app info: %v", name, err)
 		}
 
-		t.Logf("(%v) status: %v", id, info.Status)
+		t.Logf("(%v) status: %v", name, info.Status)
 
 		if info.Status == "failed" {
 			return fmt.Errorf("(%v) failed to setup test app: %v", name, info.FailureMessage)
