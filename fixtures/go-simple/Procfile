@@ -1,2 +1,2 @@
 web: go-simple
-release: [ ! -z $SLUGCMPLR ] || echo "RELEASE COMMAND RAN"
+release: echo "RELEASE COMMAND RAN"

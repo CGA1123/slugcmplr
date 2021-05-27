@@ -63,6 +63,20 @@ By default, `slugcmplr` will look in `${HOME}/.netrc` for the credentials,
 however it will respect the `${NETRC}` environment variable if set and
 non-empty.
 
+## Testing
+
+The majority of tests for this project are acceptance tests that will create
+and release live Heroku applications. These require the correct credentials to
+be set in the environment as well as setting a sentinel value to execute the
+acceptance tests:
+
+```bash
+SLUGCMPLR_ACC=true \
+  SLUGCMPLR_ACC_HEROKU_PASS=<HEROKU-API-KEY> \
+  SLUGCMPLR_ACC_HEROKU_EMAIL=<HEROKU-EMAIL> \
+  go test -v
+```
+
 ---
 
 For more background on this you might find [this] Medium article helpful.
