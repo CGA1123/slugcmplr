@@ -75,26 +75,28 @@ func setupProdApp(t *testing.T, h *heroku.Service, fixture string) string {
 	t.Logf("created app for %v (%v)", fixture, app.App.Name)
 	t.Logf("(%v) checking build status...", app.App.Name)
 
-	if err := waitForBuild(t, h, app.App.Name); err != nil {
+	if err := waitForBuild(t, h, app); err != nil {
 		t.Fatalf(err.Error())
 	}
 
 	return app.App.Name
 }
 
-func waitForBuild(t *testing.T, h *heroku.Service, id string) error {
+func waitForBuild(t *testing.T, h *heroku.Service, app *heroku.AppSetup) error {
+	id, name := app.ID, app.App.Name
+
 	for i := 0; i < 10; i++ {
 		time.Sleep(10 * time.Second)
 
 		info, err := h.AppSetupInfo(context.Background(), id)
 		if err != nil {
-			return fmt.Errorf("(%v) error fetching app info: %v", id, err)
+			return fmt.Errorf("(%v) error fetching app info: %v", name, err)
 		}
 
 		t.Logf("(%v) status: %v", id, info.Status)
 
 		if info.Status == "failed" {
-			return fmt.Errorf("(%v) failed to setup test app: %v", id, info.FailureMessage)
+			return fmt.Errorf("(%v) failed to setup test app: %v", name, info.FailureMessage)
 		}
 
 		if info.Status == "succeeded" {
@@ -102,7 +104,7 @@ func waitForBuild(t *testing.T, h *heroku.Service, id string) error {
 		}
 	}
 
-	return fmt.Errorf("(%v) build still pending after a long time, aborting", id)
+	return fmt.Errorf("(%v) build still pending after a long time, aborting", name)
 }
 
 func destroyApp(t *testing.T, h *heroku.Service, app string) {
