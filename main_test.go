@@ -45,7 +45,7 @@ func setupNetrc(t *testing.T) string {
 
 func setupProdApp(t *testing.T, h *heroku.Service, fixture string) (string, error) {
 	if err := os.Chdir("./fixtures/" + fixture); err != nil {
-		return "", fmt.Errorf("failed to change directories", err)
+		return "", fmt.Errorf("failed to change directories: %v", err)
 	}
 
 	tarball, err := targz()
@@ -129,18 +129,25 @@ func setupCompileApp(t *testing.T, h *heroku.Service) string {
 	return app.Name
 }
 
+func ok(t *testing.T, err error) {
+	if err == nil {
+		return
+	}
+
+	t.Fatalf(err.Error())
+}
+
 func Test_Build(t *testing.T) {
-	acceptance(t)
 	t.Parallel()
+
+	acceptance(t)
 
 	netrcF := setupNetrc(t)
 	os.Setenv("NETRC", netrcF)
 	defer os.Remove(netrcF)
 
 	h, err := netrcClient()
-	if err != nil {
-		t.Fatalf("failed to create client: %v", err)
-	}
+	ok(t, err)
 
 	production, err := setupProdApp(t, h, "go-simple")
 	if err != nil {
@@ -158,12 +165,49 @@ func Test_Build(t *testing.T) {
 
 	cmd := Cmd()
 	cmd.SetArgs([]string{"build", production, "--compiler", compile, "--verbose"})
-	if err := cmd.ExecuteContext(context.Background()); err != nil {
-		t.Fatalf("building failed: %v", err)
+
+	ok(t, cmd.ExecuteContext(context.Background()))
+
+	prodConf, err := h.ConfigVarInfoForApp(context.Background(), production)
+	ok(t, err)
+
+	compileConf, err := h.ConfigVarInfoForApp(context.Background(), compile)
+	ok(t, err)
+
+	// Expect all prod env vars to be synchronised to the compile app
+	for k, pv := range prodConf {
+		cv, ok := compileConf[k]
+		if !ok {
+			t.Logf("%v missing on compile app", k)
+			t.Fail()
+
+			continue
+		}
+
+		if *cv != *pv {
+			t.Logf("expected %v for key %v, got %v", pv, k, cv)
+			t.Fail()
+
+			continue
+		}
 	}
 
-	// TODO:
-	// expect env vars on compile app to be set
+	// Expect only 1 addtional env var on compile app
+	if (len(compileConf) - len(prodConf)) != 1 {
+		t.Logf("expected compile app to have only 1 additional environment variable (SLUGCMPLR)")
+		t.Logf("compile: %v", compileConf)
+		t.Logf("production: %v", prodConf)
+
+		t.Fail()
+	}
+
+	// Expect SLUGCMPLR to be set on compile app
+	if _, ok := compileConf["SLUGCMPLR"]; !ok {
+		t.Logf("expected compile app to have SLUGCMPLR set")
+
+		t.Fail()
+	}
+
 	// expect buildpacks on compile app to be set
 	// expect release command not to have run
 	// expect compile app not to be accessible over the internet (maintenance mode)
