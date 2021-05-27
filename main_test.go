@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -74,26 +75,34 @@ func setupProdApp(t *testing.T, h *heroku.Service, fixture string) string {
 	t.Logf("created app for %v (%v)", fixture, app.App.Name)
 	t.Logf("(%v) checking build status...", app.App.Name)
 
+	if err := waitForBuild(t, h, app.App.Name); err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	return app.App.Name
+}
+
+func waitForBuild(t *testing.T, h *heroku.Service, id string) error {
 	for i := 0; i < 10; i++ {
 		time.Sleep(10 * time.Second)
 
-		info, err := h.AppSetupInfo(context.Background(), app.ID)
+		info, err := h.AppSetupInfo(context.Background(), id)
 		if err != nil {
-			t.Fatalf("error fetching app info: %v", err)
+			return fmt.Errorf("(%v) error fetching app info: %v", id, err)
 		}
 
-		t.Logf("(%v) status: %v", app.App.Name, info.Status)
+		t.Logf("(%v) status: %v", id, info.Status)
 
 		if info.Status == "failed" {
-			t.Fatalf("(%v) failed to setup test app: %v", app.App.Name, info.FailureMessage)
+			return fmt.Errorf("(%v) failed to setup test app: %v", id, info.FailureMessage)
 		}
 
 		if info.Status == "succeeded" {
-			return app.App.Name
+			return nil
 		}
 	}
 
-	t.Fatalf("(%v) failed to build in a reasonable timeframe, still pending.", app.App.Name)
+	return fmt.Errorf("(%v) build still pending after a long time, aborting", id)
 }
 
 func destroyApp(t *testing.T, h *heroku.Service, app string) {
