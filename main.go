@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -22,73 +23,9 @@ var (
 	compileAppID string
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "slugcmplr",
-	Short: "slugcmplr helps you detach building and releasing Heroku applications",
-}
-
-var buildCmd = &cobra.Command{
-	Use:   "build [application]",
-	Short: "Triggers a build of your application.",
-	Long: `The build command will create a clone of your target application and
-create a standard Heroku build. The build will _not_ run the release task in
-your Procfile if it is defined.`,
-	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		production := args[0]
-		compile := compileAppID
-
-		client, err := netrcClient()
-		if err != nil {
-			return err
-		}
-
-		commit, err := commit()
-		if err != nil {
-			return err
-		}
-
-		return build(production, compile, commit, client)
-	},
-}
-
-var releaseCmd = &cobra.Command{
-	Use:   "release [target]",
-	Short: "Promotes a release from your compiler app to your target app.",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		production := args[0]
-		compile := compileAppID
-
-		client, err := netrcClient()
-		if err != nil {
-			return err
-		}
-
-		commit, err := commit()
-		if err != nil {
-			return err
-		}
-
-		return release(production, compile, commit, client)
-	},
-}
-
-func init() {
-	buildCmd.Flags().StringVar(&compileAppID, "compiler", "",
-		"The Heroku application to compile on (required)")
-	buildCmd.MarkFlagRequired("compiler")
-
-	releaseCmd.Flags().StringVar(&compileAppID, "compiler", "", "The Heroku application compiled on (required)")
-	releaseCmd.MarkFlagRequired("compiler")
-	rootCmd.AddCommand(releaseCmd)
-
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
-	rootCmd.AddCommand(buildCmd)
-}
-
 func main() {
-	if err := rootCmd.Execute(); err != nil {
+	cmd := Cmd()
+	if err := cmd.ExecuteContext(context.Background()); err != nil {
 		os.Exit(1)
 	}
 }
@@ -113,7 +50,7 @@ func dbg(w io.Writer, format string, a ...interface{}) {
 
 func commit() (string, error) {
 	step(os.Stdout, "Fetching HEAD commit...")
-	r, err := git.PlainOpen(".")
+	r, err := git.PlainOpenWithOptions(".", &git.PlainOpenOptions{DetectDotGit: true})
 	if err != nil {
 		wrn(os.Stderr, "error detecting HEAD commit: %v", err)
 		return "", err
@@ -179,6 +116,73 @@ func netrcClient() (*heroku.Service, error) {
 		Transport: &heroku.Transport{
 			Username: machine.Login,
 			Password: machine.Password}}), nil
+}
+
+func Cmd() *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "slugcmplr",
+		Short: "slugcmplr helps you detach building and releasing Heroku applications",
+	}
+
+	buildCmd := &cobra.Command{
+		Use:   "build [application]",
+		Short: "Triggers a build of your application.",
+		Long: `The build command will create a clone of your target application and
+create a standard Heroku build. The build will _not_ run the release task in
+your Procfile if it is defined.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			production := args[0]
+			compile := compileAppID
+
+			client, err := netrcClient()
+			if err != nil {
+				return err
+			}
+
+			commit, err := commit()
+			if err != nil {
+				return err
+			}
+
+			return build(cmd.Context(), production, compile, commit, client)
+		},
+	}
+
+	releaseCmd := &cobra.Command{
+		Use:   "release [target]",
+		Short: "Promotes a release from your compiler app to your target app.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			production := args[0]
+			compile := compileAppID
+
+			client, err := netrcClient()
+			if err != nil {
+				return err
+			}
+
+			commit, err := commit()
+			if err != nil {
+				return err
+			}
+
+			return release(cmd.Context(), production, compile, commit, client)
+		},
+	}
+
+	buildCmd.Flags().StringVar(&compileAppID, "compiler", "",
+		"The Heroku application to compile on (required)")
+	buildCmd.MarkFlagRequired("compiler")
+
+	releaseCmd.Flags().StringVar(&compileAppID, "compiler", "", "The Heroku application compiled on (required)")
+	releaseCmd.MarkFlagRequired("compiler")
+	rootCmd.AddCommand(releaseCmd)
+
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
+	rootCmd.AddCommand(buildCmd)
+
+	return rootCmd
 }
 
 func loadNetrc() (*netrc.Netrc, error) {
