@@ -89,11 +89,11 @@ func setupProdApp(t *testing.T, h *heroku.Service, fixture string) string {
 		}
 
 		if info.Status == "succeeded" {
-			break
+			return app.App.Name
 		}
 	}
 
-	return app.App.Name
+	t.Fatalf("(%v) failed to build in a reasonable timeframe, still pending.", app.App.Name)
 }
 
 func destroyApp(t *testing.T, h *heroku.Service, app string) {
