@@ -1,0 +1,22 @@
+name: acceptance
+
+on:
+  pull_request:
+    types: [labelled]
+    steps:
+    - uses: actions/checkout@v2.3.4
+    - uses: actions/setup-go@v2
+      with:
+        go-version: 1.16.x
+jobs:
+  test:
+    if: ${{ github.event.label.name == 'run-acceptance-tests' }}
+    name: Acceptance
+    runs-on: ubuntu-latest
+    env:
+      SLUGCMPLR_ACC: "true"
+      SLUGCMPLR_ACC_HEROKU_PASS: ${{ secrets.SLUGCMPLR_HEROKU_API_KEY }}
+      SLUGCMPLR_ACC_HEROKU_EMAIL: ${{ secrets.SLUGCMPLR_HEROKU_EMAIL }}
+    steps:
+    - run: go get -v -d ./...
+    - run: go test -verbose -race -parallel=4 ./...
