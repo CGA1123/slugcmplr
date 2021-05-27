@@ -43,19 +43,19 @@ func setupNetrc(t *testing.T) string {
 	return tmp.Name()
 }
 
-func setupProdApp(t *testing.T, h *heroku.Service, fixture string) string {
+func setupProdApp(t *testing.T, h *heroku.Service, fixture string) (string, error) {
 	if err := os.Chdir("./fixtures/" + fixture); err != nil {
-		t.Fatalf("failed to change directories: %v", err)
+		return "", fmt.Errorf("failed to change directories", err)
 	}
 
 	tarball, err := targz()
 	if err != nil {
-		t.Fatalf("failed tarring directory: %v", err)
+		return "", fmt.Errorf("failed tarring directory: %v", err)
 	}
 
 	src, err := upload(context.Background(), h, tarball.blob)
 	if err != nil {
-		t.Fatalf("failed to upload test app: %v", err)
+		return "", fmt.Errorf("failed to upload test app: %v", err)
 	}
 
 	app, err := h.AppSetupCreate(context.Background(), heroku.AppSetupCreateOpts{
@@ -69,17 +69,17 @@ func setupProdApp(t *testing.T, h *heroku.Service, fixture string) string {
 		},
 	})
 	if err != nil {
-		t.Fatalf("failed to create application: %v", err)
+		return "", fmt.Errorf("failed to create application: %v", err)
 	}
 
 	t.Logf("created app for %v (%v)", fixture, app.App.Name)
 	t.Logf("(%v) checking build status...", app.App.Name)
 
 	if err := waitForBuild(t, h, app); err != nil {
-		t.Fatalf(err.Error())
+		return app.App.Name, fmt.Errorf(err.Error())
 	}
 
-	return app.App.Name
+	return app.App.Name, nil
 }
 
 func waitForBuild(t *testing.T, h *heroku.Service, app *heroku.AppSetup) error {
@@ -142,7 +142,15 @@ func Test_Build(t *testing.T) {
 		t.Fatalf("failed to create client: %v", err)
 	}
 
-	production := setupProdApp(t, h, "go-simple")
+	production, err := setupProdApp(t, h, "go-simple")
+	if err != nil {
+		if production != "" {
+			destroyApp(t, h, production)
+		}
+
+		t.Fatalf("failed to setup production application: %v", err)
+	}
+
 	defer destroyApp(t, h, production)
 
 	compile := setupCompileApp(t, h)
