@@ -11,7 +11,7 @@ on:
 
 jobs:
   test:
-    if: ${{ github.event_name == 'push' || github.event.label.name == 'run-acceptance-tests' }}
+    if: ${{ github.event_name == 'push' || github.event.label.name == 'run-acceptance-tests' || github.event_name == 'schedule' }}
     name: Acceptance
     runs-on: ubuntu-latest
     env:
