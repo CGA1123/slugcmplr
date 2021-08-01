@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -246,6 +247,11 @@ func Test_BuildRelease(t *testing.T) {
 				t.Logf("%v missing on compile app", k)
 				t.Fail()
 
+				continue
+			}
+
+			// skip HEROKU_ env vars
+			if strings.HasPrefix(k, "HEROKU_") {
 				continue
 			}
 
