@@ -249,8 +249,7 @@ func targz() (*tarball, error) {
 	return &tarball{blob: archive, checksum: fmt.Sprintf("SHA256:%v", hex.EncodeToString(sha.Sum(nil)))}, nil
 }
 
-// TODO: Should App Features be synchronised? They could affect the build (e.g. by injecting additional env vars)
-// Should the dyno formation be explicitly set to 0?
+// TODO: Should the dyno formation be explicitly set to 0?
 func synchronise(ctx context.Context, h *heroku.Service, target, compile string) error {
 	bpi, err := h.BuildpackInstallationList(ctx, target, nil)
 	if err != nil {
@@ -286,7 +285,41 @@ func synchronise(ctx context.Context, h *heroku.Service, target, compile string)
 		return err
 	}
 
+	targetAppFeatures, err := fetchAppFeatures(ctx, h, target)
+	if err != nil {
+		return err
+	}
+
+	compileAppFeatures, err := fetchAppFeatures(ctx, h, compile)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range targetAppFeatures {
+		if compileAppFeatures[k] != v {
+			_, err := h.AppFeatureUpdate(ctx, compile, k, heroku.AppFeatureUpdateOpts{Enabled: v})
+			if err != nil {
+				return fmt.Errorf("updating compile app features: %w", err)
+			}
+		}
+	}
+
 	return nil
+}
+
+func fetchAppFeatures(ctx context.Context, h *heroku.Service, app string) (map[string]bool, error) {
+	features, err := h.AppFeatureList(ctx, app, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	featMap := make(map[string]bool, len(features))
+
+	for _, feat := range features {
+		featMap[feat.ID] = feat.Enabled
+	}
+
+	return featMap, nil
 }
 
 func upload(ctx context.Context, h *heroku.Service, blob *bytes.Buffer) (*heroku.Source, error) {
