@@ -188,7 +188,7 @@ func withHarness(t *testing.T, fixture string, f func(*testing.T, string, string
 	f(t, production, compile, h)
 }
 
-func Test_Build(t *testing.T) {
+func Test_BuildRelease(t *testing.T) {
 	t.Parallel()
 
 	withHarness(t, "go-simple", func(t *testing.T, production, compile string, h *heroku.Service) {
@@ -214,10 +214,15 @@ func Test_Build(t *testing.T) {
 			t.Fail()
 		}
 
-		cmd := Cmd()
-		cmd.SetArgs([]string{"build", production, "--compiler", compile, "--verbose"})
+		buildCmd := Cmd()
+		buildCmd.SetArgs([]string{"build", production, "--compiler", compile, "--verbose"})
 
-		ok(t, cmd.ExecuteContext(context.Background()))
+		ok(t, buildCmd.ExecuteContext(context.Background()))
+
+		releaseCmd := Cmd()
+		releaseCmd.SetArgs([]string{"release", production, "--compiler", compile, "--verbose"})
+
+		ok(t, releaseCmd.ExecuteContext(context.Background()))
 
 		prodFeats := fetchFeats(t, h, production)
 		compileFeats := fetchFeats(t, h, compile)
