@@ -192,10 +192,40 @@ func Test_Build(t *testing.T) {
 	t.Parallel()
 
 	withHarness(t, "go-simple", func(t *testing.T, production, compile string, h *heroku.Service) {
+		// setup app features to test syncing
+		//
+		// TODO(cga1123): should maybe choose a feature at random based on the
+		// list of all features currently available?
+		feat, err := h.AppFeatureUpdate(
+			context.Background(),
+			production,
+			"runtime-dyno-metadata",
+			heroku.AppFeatureUpdateOpts{Enabled: true})
+		ok(t, err)
+		if !feat.Enabled {
+			t.Logf("expected %v to be enabled on production", feat.Name)
+			t.Fail()
+		}
+
+		compileFeat, err := h.AppFeatureInfo(context.Background(), compile, "runtime-dyno-metadata")
+		ok(t, err)
+		if compileFeat.Enabled {
+			t.Logf("expected %v not to be enabled on compile", compileFeat.Name)
+			t.Fail()
+		}
+
 		cmd := Cmd()
 		cmd.SetArgs([]string{"build", production, "--compiler", compile, "--verbose"})
 
 		ok(t, cmd.ExecuteContext(context.Background()))
+
+		prodFeats := fetchFeats(t, h, production)
+		compileFeats := fetchFeats(t, h, compile)
+
+		if !mapEqual(prodFeats, compileFeats) {
+			t.Logf("expected %+v, got %+v", prodFeats, compileFeats)
+			t.Fail()
+		}
 
 		prodConf, err := h.ConfigVarInfoForApp(context.Background(), production)
 		ok(t, err)
@@ -271,6 +301,32 @@ func Test_Build(t *testing.T) {
 	})
 }
 
+func mapEqual(a, b map[string]bool) bool {
+	for ka, va := range a {
+		vb, ok := b[ka]
+		if !ok {
+			return false
+		}
+
+		if va != vb {
+			return false
+		}
+	}
+
+	for kb, vb := range b {
+		va, ok := b[kb]
+		if !ok {
+			return false
+		}
+
+		if va != vb {
+			return false
+		}
+	}
+
+	return true
+}
+
 func fetchBuildpacks(t *testing.T, h *heroku.Service, app string) []string {
 	packs, err := h.BuildpackInstallationList(context.Background(), app, nil)
 	ok(t, err)
@@ -285,6 +341,18 @@ func fetchBuildpacks(t *testing.T, h *heroku.Service, app string) []string {
 	}
 
 	return names
+}
+
+func fetchFeats(t *testing.T, h *heroku.Service, app string) map[string]bool {
+	feats, err := h.AppFeatureList(context.Background(), app, nil)
+	ok(t, err)
+
+	featMap := make(map[string]bool, len(feats))
+	for _, feat := range feats {
+		featMap[feat.Name] = feat.Enabled
+	}
+
+	return featMap
 }
 
 func latestReleaseLog(t *testing.T, h *heroku.Service, app string) string {

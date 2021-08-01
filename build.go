@@ -286,7 +286,41 @@ func synchronise(ctx context.Context, h *heroku.Service, target, compile string)
 		return err
 	}
 
+	targetAppFeatures, err := fetchAppFeatures(ctx, h, target)
+	if err != nil {
+		return err
+	}
+
+	compileAppFeatures, err := fetchAppFeatures(ctx, h, compile)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range targetAppFeatures {
+		if compileAppFeatures[k] != v {
+			// _, err := h.AppFeatureUpdate(ctx, compile, k, heroku.AppFeatureUpdateOpts{Enabled: v})
+			// if err != nil {
+			// 	return fmt.Errorf("updating compile app features: %w", err)
+			// }
+		}
+	}
+
 	return nil
+}
+
+func fetchAppFeatures(ctx context.Context, h *heroku.Service, app string) (map[string]bool, error) {
+	features, err := h.AppFeatureList(ctx, app, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	featMap := make(map[string]bool, len(features))
+
+	for _, feat := range features {
+		featMap[feat.ID] = feat.Enabled
+	}
+
+	return featMap, nil
 }
 
 func upload(ctx context.Context, h *heroku.Service, blob *bytes.Buffer) (*heroku.Source, error) {
