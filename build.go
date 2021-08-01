@@ -249,8 +249,7 @@ func targz() (*tarball, error) {
 	return &tarball{blob: archive, checksum: fmt.Sprintf("SHA256:%v", hex.EncodeToString(sha.Sum(nil)))}, nil
 }
 
-// TODO: Should App Features be synchronised? They could affect the build (e.g. by injecting additional env vars)
-// Should the dyno formation be explicitly set to 0?
+// TODO: Should the dyno formation be explicitly set to 0?
 func synchronise(ctx context.Context, h *heroku.Service, target, compile string) error {
 	bpi, err := h.BuildpackInstallationList(ctx, target, nil)
 	if err != nil {
@@ -298,10 +297,10 @@ func synchronise(ctx context.Context, h *heroku.Service, target, compile string)
 
 	for k, v := range targetAppFeatures {
 		if compileAppFeatures[k] != v {
-			// _, err := h.AppFeatureUpdate(ctx, compile, k, heroku.AppFeatureUpdateOpts{Enabled: v})
-			// if err != nil {
-			// 	return fmt.Errorf("updating compile app features: %w", err)
-			// }
+			_, err := h.AppFeatureUpdate(ctx, compile, k, heroku.AppFeatureUpdateOpts{Enabled: v})
+			if err != nil {
+				return fmt.Errorf("updating compile app features: %w", err)
+			}
 		}
 	}
 
