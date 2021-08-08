@@ -73,13 +73,22 @@ func setupProdApp(t *testing.T, h *heroku.Service, fixture string) (string, erro
 		return "", fmt.Errorf("failed to change directories: %v", err)
 	}
 
-	tarball, err := targz()
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	tarball, err := targz(cwd)
 	if err != nil {
 		return "", fmt.Errorf("failed tarring directory: %v", err)
 	}
 
-	src, err := upload(context.Background(), h, tarball.blob)
+	src, err := h.SourceCreate(context.Background())
 	if err != nil {
+		return "", fmt.Errorf("error creating source: %w", err)
+	}
+
+	if err := upload(context.Background(), http.MethodPut, src.SourceBlob.PutURL, tarball.blob); err != nil {
 		return "", fmt.Errorf("failed to upload test app: %v", err)
 	}
 

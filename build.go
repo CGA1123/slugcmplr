@@ -34,7 +34,12 @@ func build(ctx context.Context, production, compile, commit string, client *hero
 	}
 
 	step(os.Stdout, "Creating source code tarball...")
-	tarball, err := targz()
+	srcDirPath, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("error getting current directory: %w", err)
+	}
+
+	tarball, err := targz(srcDirPath)
 	if err != nil {
 		wrn(os.Stderr, "error creating tarball: %v", err)
 
@@ -45,8 +50,12 @@ func build(ctx context.Context, production, compile, commit string, client *hero
 	log(os.Stdout, "Size: %v", tarball.blob.Len())
 
 	step(os.Stdout, "Uploading source code tarball...")
-	src, err := upload(ctx, client, tarball.blob)
+	src, err := client.SourceCreate(ctx)
 	if err != nil {
+		return fmt.Errorf("error creating source: %w", err)
+	}
+
+	if err := upload(ctx, http.MethodPut, src.SourceBlob.PutURL, tarball.blob); err != nil {
 		return err
 	}
 
@@ -174,12 +183,7 @@ type tarball struct {
 
 // targz will walk srcDirPath recursively and write the correspoding G-Zipped Tar
 // Archive to the given writers.
-func targz() (*tarball, error) {
-	srcDirPath, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("error getting current directory: %w", err)
-	}
-
+func targz(srcDirPath string) (*tarball, error) {
 	sha, archive := sha256.New(), &bytes.Buffer{}
 	mw := io.MultiWriter(sha, archive)
 
@@ -322,20 +326,17 @@ func fetchAppFeatures(ctx context.Context, h *heroku.Service, app string) (map[s
 	return featMap, nil
 }
 
-func upload(ctx context.Context, h *heroku.Service, blob *bytes.Buffer) (*heroku.Source, error) {
-	src, err := h.SourceCreate(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error creating source: %w", err)
-	}
+func upload(ctx context.Context, method, url string, blob *bytes.Buffer) error {
+	dbg(os.Stdout, "uploading: %v %v", method, url)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, src.SourceBlob.PutURL, blob)
+	req, err := http.NewRequestWithContext(ctx, method, url, blob)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	var body string
@@ -343,14 +344,14 @@ func upload(ctx context.Context, h *heroku.Service, blob *bytes.Buffer) (*heroku
 
 	b, err := io.ReadAll(response.Body)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	body = string(b)
 
 	if response.StatusCode > 399 {
-		return nil, fmt.Errorf("HTTP %v: %v", response.Status, body)
+		return fmt.Errorf("HTTP %v: %v", response.Status, body)
 	}
 
-	return src, nil
+	return nil
 }

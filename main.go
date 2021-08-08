@@ -149,6 +149,26 @@ your Procfile if it is defined.`,
 		},
 	}
 
+	compileCmd := &cobra.Command{
+		Use:   "compile [target]",
+		Short: "compile the target applications",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			production := args[0]
+			client, err := netrcClient()
+			if err != nil {
+				return err
+			}
+
+			commit, err := commit()
+			if err != nil {
+				return err
+			}
+
+			return compile(cmd.Context(), production, commit, client)
+		},
+	}
+
 	releaseCmd := &cobra.Command{
 		Use:   "release [target]",
 		Short: "Promotes a release from your compiler app to your target app.",
@@ -178,6 +198,8 @@ your Procfile if it is defined.`,
 	releaseCmd.Flags().StringVar(&compileAppID, "compiler", "", "The Heroku application compiled on (required)")
 	releaseCmd.MarkFlagRequired("compiler")
 	rootCmd.AddCommand(releaseCmd)
+
+	rootCmd.AddCommand(compileCmd)
 
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
 	rootCmd.AddCommand(buildCmd)
