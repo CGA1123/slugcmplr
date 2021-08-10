@@ -13,6 +13,19 @@ import (
 	heroku "github.com/heroku/heroku-go/v5"
 )
 
+// TODO:
+// slugcmplr compile [APP]
+//   --source-dir [DIR] // default to current directory
+//   --cache-dir [DIR] // default to tmpdir/cache
+//   --env-dir [DIR] // default to tmpdir/env
+//   --buildpacks-dir [DIR] //defaule to tmpdir/buildpacks
+//   --output [DIR] // default to tmpdir
+//
+// slugcmplr upload [APP] --slug [PATH]
+//
+// slugcmplr release [APP] --slug-id [ID]
+//
+// How to make it easy to get slug id from
 func compile(ctx context.Context, production, commit string, h *heroku.Service) error {
 	baseDir, err := os.MkdirTemp("", "")
 	if err != nil {
