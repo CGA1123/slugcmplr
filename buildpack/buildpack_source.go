@@ -50,7 +50,11 @@ func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 	}
 	defer gz.Close()
 
-	basePath := filepath.Join(baseDir, s.Dir())
+	basePath, err := filepath.EvalSymlinks(filepath.Join(baseDir, s.Dir()))
+	if err != nil {
+		return nil, err
+	}
+
 	if err := os.MkdirAll(basePath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to mkdir (%v): %w", basePath, err)
 	}
@@ -92,15 +96,9 @@ func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 		// clean the resulting path, evaluating any `..`)
 		//
 		// See: https://snyk.io/research/zip-slip-vulnerability
-		evalPath, err := filepath.EvalSymlinks(path)
-		if err != nil {
-			return nil, fmt.Errorf("error evaluating symlinks in: %v", path)
-		}
-
-		if !strings.HasPrefix(evalPath, basePath) {
+		if !strings.HasPrefix(path, basePath) {
 			return nil, fmt.Errorf("detected zipslip processing: %v (fullpath=%v)", header.Name, path)
 		}
-
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(path, header.FileInfo().Mode()); err != nil {
@@ -120,6 +118,15 @@ func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 				return nil, fmt.Errorf("failed to close written file (%v): %w", path, err)
 			}
 		case tar.TypeSymlink:
+			evalPath, err := filepath.EvalSymlinks(filepath.Join(basePath, header.Name, "..", header.Linkname))
+			if err != nil {
+				return nil, fmt.Errorf("failed to evaluate symlink: %w", err)
+			}
+
+			if !strings.HasPrefix(evalPath, basePath) {
+				return nil, fmt.Errorf("symlink breaks out of path!")
+			}
+
 			if err := os.Symlink(header.Linkname, path); err != nil {
 				return nil, fmt.Errorf("failed to symlink %v -> %v: %w", header.Linkname, path, err)
 			}
