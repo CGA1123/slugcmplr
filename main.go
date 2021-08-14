@@ -207,8 +207,6 @@ func targz(srcDirPath, dstDirPath string) (*tarball, error) {
 }
 
 func upload(ctx context.Context, method, url, path string) error {
-	dbg(os.Stdout, "uploading: %v %v", method, url)
-
 	f, err := os.Open(path)
 	if err != nil {
 		return err
