@@ -115,13 +115,29 @@ func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 				return nil, fmt.Errorf("failed to close written file (%v): %w", path, err)
 			}
 		case tar.TypeSymlink:
-			if err := os.Symlink(header.Linkname, path); err != nil {
-				return nil, fmt.Errorf("failed to symlink %v -> %v: %w", header.Linkname, path, err)
+			if isRel(header.Linkname, basePath) && isRel(header.Name, basePath) {
+				if err := os.Symlink(header.Linkname, path); err != nil {
+					return nil, fmt.Errorf("failed to symlink %v -> %v: %w", header.Linkname, path, err)
+				}
+			} else {
+				return nil, fmt.Errorf("tar symlink not relative: %v -> %v", header.Linkname, header.Name)
 			}
 		}
 	}
 
 	return &Buildpack{Directory: s.Dir()}, nil
+}
+
+func isRel(candidate, target string) bool {
+	if filepath.IsAbs(candidate) {
+		return false
+	}
+	realpath, err := filepath.EvalSymlinks(filepath.Join(target, candidate))
+	if err != nil {
+		return false
+	}
+	relpath, err := filepath.Rel(target, realpath)
+	return err == nil && !strings.HasPrefix(filepath.Clean(relpath), "..")
 }
 
 func ParseSource(url string) (Source, error) {
