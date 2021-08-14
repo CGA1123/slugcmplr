@@ -21,12 +21,6 @@ type Compile struct {
 	Buildpacks    []*buildpack.Buildpack `json:"buildpacks"`
 }
 
-type Release struct {
-	Application string `json:"application"`
-	Slug        string `json:"slug"`
-	Commit      string `json:"commit"`
-}
-
 func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) error {
 	step(os.Stdout, "Reading metadata")
 	log(os.Stdout, "From: %v", filepath.Join(buildDir, "meta.json"))

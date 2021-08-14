@@ -11,6 +11,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type Release struct {
+	Application string `json:"application"`
+	Slug        string `json:"slug"`
+	Commit      string `json:"commit"`
+}
+
 func release(ctx context.Context, h *heroku.Service, buildDir string) error {
 	step(os.Stdout, "Reading release")
 	log(os.Stdout, "From: %v", filepath.Join(buildDir, "release.json"))
