@@ -97,6 +97,7 @@ func Cmd() *cobra.Command {
 
 	rootCmd.AddCommand(prepareCmd())
 	rootCmd.AddCommand(compileCmd())
+	rootCmd.AddCommand(releaseCmd())
 
 	return rootCmd
 }

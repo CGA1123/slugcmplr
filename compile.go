@@ -24,6 +24,7 @@ type Compile struct {
 type Release struct {
 	Application string `json:"application"`
 	Slug        string `json:"slug"`
+	Commit      string `json:"commit"`
 }
 
 func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) error {
@@ -113,7 +114,11 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 
 	fmt.Printf("created slug %v\n", slug.ID)
 
-	r := &Release{Application: c.Application, Slug: slug.ID}
+	r := &Release{
+		Application: c.Application,
+		Slug:        slug.ID,
+		Commit:      c.SourceVersion,
+	}
 
 	step(os.Stdout, "Writing metadata")
 	log(os.Stdout, "To: %v", filepath.Join(buildDir, "slug.json"))
