@@ -121,8 +121,8 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 	}
 
 	step(os.Stdout, "Writing metadata")
-	log(os.Stdout, "To: %v", filepath.Join(buildDir, "slug.json"))
-	f, err := os.Create(filepath.Join(buildDir, "slug.json"))
+	log(os.Stdout, "To: %v", filepath.Join(buildDir, "release.json"))
+	f, err := os.Create(filepath.Join(buildDir, "release.json"))
 	if err != nil {
 		return fmt.Errorf("failed to create meta file: %w", err)
 	}

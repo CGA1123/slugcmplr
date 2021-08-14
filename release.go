@@ -33,7 +33,7 @@ func release(ctx context.Context, h *heroku.Service, buildDir string) error {
 
 	h.ReleaseCreate(ctx, r.Application, heroku.ReleaseCreateOpts{
 		Slug:        r.Slug,
-		Description: heroku.String(fmt.Sprintf("Deployed %v", r.Commit[:7])),
+		Description: heroku.String(fmt.Sprintf("Deployed %v", r.Commit[:8])),
 	})
 
 	return nil
