@@ -118,7 +118,7 @@ func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 				return nil, fmt.Errorf("failed to close written file (%v): %w", path, err)
 			}
 		case tar.TypeSymlink:
-			evalPath, err := filepath.EvalSymlinks(filepath.Join(basePath, header.Name, "..", header.Linkname))
+			evalPath, err := filepath.EvalSymlinks(filepath.Join(path, "..", header.Linkname))
 			if err != nil {
 				return nil, fmt.Errorf("failed to evaluate symlink: %w", err)
 			}
