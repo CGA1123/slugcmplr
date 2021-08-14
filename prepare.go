@@ -32,6 +32,12 @@ func prepare(ctx context.Context, h *heroku.Service, p *Prepare) error {
 	buildpacksDir := filepath.Join(p.BuildDir, buildpack.BuildpacksDir)
 	appDir := filepath.Join(p.BuildDir, buildpack.AppDir)
 
+	// dump metadata
+	commit, err := commitDir(p.SourceDir)
+	if err != nil {
+		return fmt.Errorf("failed to resolve HEAD commit: %w", err)
+	}
+
 	app, err := h.AppInfo(ctx, p.Application)
 	if err != nil {
 		return err
@@ -47,6 +53,15 @@ func prepare(ctx context.Context, h *heroku.Service, p *Prepare) error {
 		return err
 	}
 
+	step(os.Stdout, "Preparing app: %v", p.Application)
+	log(os.Stdout, "id: %v", app.ID)
+	log(os.Stdout, "stack: %v", app.Stack.Name)
+	log(os.Stdout, "%v config vars", len(configuration))
+	log(os.Stdout, "%v buildpacks", len(bpi))
+	log(os.Stdout, "commit: %v", commit)
+	log(os.Stdout, "build directory: %v", p.BuildDir)
+	log(os.Stdout, "source directory: %v", p.SourceDir)
+
 	// download buildpacks
 	sort.Slice(bpi, func(a, b int) bool {
 		return bpi[a].Ordinal < bpi[b].Ordinal
@@ -54,10 +69,13 @@ func prepare(ctx context.Context, h *heroku.Service, p *Prepare) error {
 
 	bps := make([]*buildpack.Buildpack, len(bpi))
 	for i, bp := range bpi {
+		step(os.Stdout, "Downloading buildpack: %v", bp.Buildpack.Name)
 		src, err := buildpack.ParseSource(bp.Buildpack.URL)
 		if err != nil {
 			return fmt.Errorf("failed to parse buildpack source: %w", err)
 		}
+
+		log(os.Stdout, "Output: %v", src.Dir())
 
 		bp, err := src.Download(ctx, buildpacksDir)
 		if err != nil {
@@ -66,6 +84,14 @@ func prepare(ctx context.Context, h *heroku.Service, p *Prepare) error {
 
 		bps[i] = bp
 	}
+
+	step(os.Stdout, "Using buildpacks:")
+	for i, bp := range bpi {
+		log(os.Stdout, "%v. %v", i+1, bp.Buildpack.Name)
+	}
+
+	step(os.Stdout, "Writing configuration variables")
+	log(os.Stdout, "Output: %v", envDir)
 
 	// write env
 	if err := os.MkdirAll(envDir, 0700); err != nil {
@@ -79,22 +105,24 @@ func prepare(ctx context.Context, h *heroku.Service, p *Prepare) error {
 			continue
 		}
 
+		log(os.Stdout, "%v: %v bytes", name, len(*value))
+
 		if err := os.WriteFile(filepath.Join(envDir, name), []byte(*value), 0600); err != nil {
 			return fmt.Errorf("error writing %v: %w", name, err)
 		}
 	}
+
+	step(os.Stdout, "Copying source")
+	log(os.Stdout, "From: %v", p.SourceDir)
+	log(os.Stdout, "To: %v", appDir)
 
 	// copy source
 	if err := copy.Copy(p.SourceDir, appDir); err != nil {
 		return fmt.Errorf("failed to copy source: %w", err)
 	}
 
-	// dump metadata
-	commit, err := commitDir(p.SourceDir)
-	if err != nil {
-		return fmt.Errorf("failed to resolve HEAD commit: %w", err)
-	}
-
+	step(os.Stdout, "Writing metadata")
+	log(os.Stdout, "To: %v", filepath.Join(p.BuildDir, "meta.json"))
 	f, err := os.Create(filepath.Join(p.BuildDir, "meta.json"))
 	if err != nil {
 		return fmt.Errorf("failed to create meta file: %w", err)
