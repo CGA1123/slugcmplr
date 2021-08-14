@@ -229,11 +229,6 @@ func Test_BuildRelease(t *testing.T) {
 
 		ok(t, buildCmd.ExecuteContext(context.Background()))
 
-		releaseCmd := Cmd()
-		releaseCmd.SetArgs([]string{"release", production, "--compiler", compile, "--verbose"})
-
-		ok(t, releaseCmd.ExecuteContext(context.Background()))
-
 		prodFeats := fetchFeats(t, h, production)
 		compileFeats := fetchFeats(t, h, compile)
 

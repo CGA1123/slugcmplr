@@ -1,14 +1,21 @@
 package main
 
 import (
+	"archive/tar"
 	"bufio"
+	"bytes"
+	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/bgentry/go-netrc/netrc"
@@ -49,8 +56,12 @@ func dbg(w io.Writer, format string, a ...interface{}) {
 }
 
 func commit() (string, error) {
+	return commitDir(".")
+}
+
+func commitDir(dir string) (string, error) {
 	step(os.Stdout, "Fetching HEAD commit...")
-	r, err := git.PlainOpenWithOptions(".", &git.PlainOpenOptions{DetectDotGit: true})
+	r, err := git.PlainOpenWithOptions(dir, &git.PlainOpenOptions{DetectDotGit: true})
 	if err != nil {
 		wrn(os.Stderr, "error detecting HEAD commit: %v", err)
 		return "", err
@@ -124,85 +135,10 @@ func Cmd() *cobra.Command {
 		Short: "slugcmplr helps you detach building and releasing Heroku applications",
 	}
 
-	buildCmd := &cobra.Command{
-		Use:   "build [application]",
-		Short: "Triggers a build of your application.",
-		Long: `The build command will create a clone of your target application and
-create a standard Heroku build. The build will _not_ run the release task in
-your Procfile if it is defined.`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			production := args[0]
-			compile := compileAppID
-
-			client, err := netrcClient()
-			if err != nil {
-				return err
-			}
-
-			commit, err := commit()
-			if err != nil {
-				return err
-			}
-
-			return build(cmd.Context(), production, compile, commit, client)
-		},
-	}
-
-	compileCmd := &cobra.Command{
-		Use:   "compile [target]",
-		Short: "compile the target applications",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			production := args[0]
-			client, err := netrcClient()
-			if err != nil {
-				return err
-			}
-
-			commit, err := commit()
-			if err != nil {
-				return err
-			}
-
-			return compile(cmd.Context(), production, commit, client)
-		},
-	}
-
-	releaseCmd := &cobra.Command{
-		Use:   "release [target]",
-		Short: "Promotes a release from your compiler app to your target app.",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			production := args[0]
-			compile := compileAppID
-
-			client, err := netrcClient()
-			if err != nil {
-				return err
-			}
-
-			commit, err := commit()
-			if err != nil {
-				return err
-			}
-
-			return release(cmd.Context(), production, compile, commit, client)
-		},
-	}
-
-	buildCmd.Flags().StringVar(&compileAppID, "compiler", "",
-		"The Heroku application to compile on (required)")
-	buildCmd.MarkFlagRequired("compiler")
-
-	releaseCmd.Flags().StringVar(&compileAppID, "compiler", "", "The Heroku application compiled on (required)")
-	releaseCmd.MarkFlagRequired("compiler")
-	rootCmd.AddCommand(releaseCmd)
-
-	rootCmd.AddCommand(compileCmd)
-
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
-	rootCmd.AddCommand(buildCmd)
+
+	rootCmd.AddCommand(prepareCmd())
+	rootCmd.AddCommand(compileCmd())
 
 	return rootCmd
 }
@@ -226,4 +162,111 @@ func ptrStr(ptr *string) string {
 	}
 
 	return *ptr
+}
+
+type tarball struct {
+	blob     *bytes.Buffer
+	checksum string
+}
+
+// targz will walk srcDirPath recursively and write the correspoding G-Zipped Tar
+// Archive to the given writers.
+func targz(srcDirPath string) (*tarball, error) {
+	sha, archive := sha256.New(), &bytes.Buffer{}
+	mw := io.MultiWriter(sha, archive)
+
+	gzw := gzip.NewWriter(mw)
+	defer gzw.Close()
+
+	tw := tar.NewWriter(gzw)
+	defer tw.Close()
+
+	walk := func(file string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		info, err := d.Info()
+		if err != nil {
+			return fmt.Errorf("file moved or removed while building tarball: %w", err)
+		}
+
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+
+		header, err := tar.FileInfoHeader(info, d.Name())
+		if err != nil {
+			return err
+		}
+
+		header.Name = strings.TrimPrefix(strings.TrimPrefix(file, srcDirPath), string(filepath.Separator))
+
+		// Heroku requires GNU Tar format (at least for slugs, maybe not for build sources?)
+		//
+		// https://devcenter.heroku.com/articles/platform-api-deploying-slugs#create-slug-archive
+		header.Format = tar.FormatGNU
+
+		if err := tw.WriteHeader(header); err != nil {
+			return err
+		}
+
+		f, err := os.Open(file)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		if _, err := io.Copy(tw, f); err != nil {
+			return err
+		}
+
+		return f.Close()
+	}
+
+	if err := filepath.WalkDir(srcDirPath, walk); err != nil {
+		return nil, fmt.Errorf("error walking directory: %w", err)
+	}
+
+	// explicitly close to ensure we flush to archive and sha, make sure we get
+	// a correct checksum.
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
+
+	if err := gzw.Close(); err != nil {
+		return nil, err
+	}
+
+	return &tarball{blob: archive, checksum: fmt.Sprintf("SHA256:%v", hex.EncodeToString(sha.Sum(nil)))}, nil
+}
+
+func upload(ctx context.Context, method, url string, blob *bytes.Buffer) error {
+	dbg(os.Stdout, "uploading: %v %v", method, url)
+
+	req, err := http.NewRequestWithContext(ctx, method, url, blob)
+	if err != nil {
+		return err
+	}
+
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+
+	var body string
+	defer response.Body.Close()
+
+	b, err := io.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+
+	body = string(b)
+
+	if response.StatusCode > 399 {
+		return fmt.Errorf("HTTP %v: %v", response.Status, body)
+	}
+
+	return nil
 }

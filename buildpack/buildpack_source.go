@@ -15,7 +15,7 @@ import (
 )
 
 type Source interface {
-	Download(ctx context.Context, baseDir string) (Buildpack, error)
+	Download(ctx context.Context, baseDir string) (*Buildpack, error)
 	Dir() string
 }
 
@@ -28,7 +28,7 @@ func (s *targzSource) Dir() string {
 	return sum256(s.URL)
 }
 
-func (s *targzSource) Download(ctx context.Context, baseDir string) (Buildpack, error) {
+func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.URL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build request: %w", err)
@@ -121,7 +121,7 @@ func (s *targzSource) Download(ctx context.Context, baseDir string) (Buildpack, 
 		}
 	}
 
-	return &buildpack{directory: basePath}, nil
+	return &Buildpack{Directory: basePath}, nil
 }
 
 func ParseSource(url string) (Source, error) {

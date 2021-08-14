@@ -9,26 +9,24 @@ import (
 	"strings"
 )
 
+const (
+	AppDir         = "app"
+	EnvironmentDir = "environment"
+	BuildpacksDir  = "buildpacks"
+)
+
 type Build struct {
 	BuildDir      string
-	EnvDir        string
 	CacheDir      string
 	Stack         string
 	SourceVersion string
 }
 
-type Buildpack interface {
-	Detect(context.Context, *Build) (string, bool, error)
-	Compile(context.Context, []Buildpack, *Build) error
-	Export(context.Context) (string, bool, error)
-	Run(context.Context, []Buildpack, *Build) (string, bool, error)
+type Buildpack struct {
+	Directory string `json:"directory"`
 }
 
-type buildpack struct {
-	directory string
-}
-
-func (b *buildpack) Run(ctx context.Context, previousBuildpacks []Buildpack, build *Build) (string, bool, error) {
+func (b *Buildpack) Run(ctx context.Context, previousBuildpacks []*Buildpack, build *Build) (string, bool, error) {
 	detected, ok, err := b.Detect(ctx, build)
 	if err != nil {
 		return "", false, err
@@ -44,11 +42,11 @@ func (b *buildpack) Run(ctx context.Context, previousBuildpacks []Buildpack, bui
 	return detected, true, nil
 }
 
-func (b *buildpack) Detect(ctx context.Context, build *Build) (string, bool, error) {
-	detect := filepath.Join(b.directory, "bin", "detect")
+func (b *Buildpack) Detect(ctx context.Context, build *Build) (string, bool, error) {
+	detect := filepath.Join(b.Directory, "bin", "detect")
 	stdout := &strings.Builder{}
 
-	detectCmd := exec.CommandContext(ctx, detect, build.BuildDir)
+	detectCmd := exec.CommandContext(ctx, detect, filepath.Join(build.BuildDir, AppDir))
 	detectCmd.Stderr, detectCmd.Stdout = os.Stderr, stdout
 
 	if err := detectCmd.Run(); err != nil {
@@ -62,8 +60,8 @@ func (b *buildpack) Detect(ctx context.Context, build *Build) (string, bool, err
 	return strings.TrimSpace(stdout.String()), true, nil
 }
 
-func (b *buildpack) Compile(ctx context.Context, exports []Buildpack, build *Build) error {
-	compile := filepath.Join(b.directory, "bin", "compile")
+func (b *Buildpack) Compile(ctx context.Context, exports []*Buildpack, build *Build) error {
+	compile := filepath.Join(b.Directory, "bin", "compile")
 	commandParts := []string{}
 
 	// exports
@@ -80,8 +78,11 @@ func (b *buildpack) Compile(ctx context.Context, exports []Buildpack, build *Bui
 		commandParts = append(commandParts, fmt.Sprintf("'source' '%v'", dir))
 	}
 
+	appDir := filepath.Join(build.BuildDir, AppDir)
+	envDir := filepath.Join(build.BuildDir, EnvironmentDir)
+
 	// compile
-	commandParts = append(commandParts, fmt.Sprintf("'%v' '%v' '%v' '%v'", compile, build.BuildDir, build.CacheDir, build.EnvDir))
+	commandParts = append(commandParts, fmt.Sprintf("'%v' '%v' '%v' '%v'", compile, appDir, build.CacheDir, envDir))
 
 	compileCmd := exec.CommandContext(ctx, "bash", "-c", strings.Join(commandParts, ";"))
 	compileCmd.Stderr, compileCmd.Stdout = os.Stderr, os.Stdout
@@ -92,8 +93,8 @@ func (b *buildpack) Compile(ctx context.Context, exports []Buildpack, build *Bui
 	return nil
 }
 
-func (b *buildpack) Export(ctx context.Context) (string, bool, error) {
-	export := filepath.Join(b.directory, "export")
+func (b *Buildpack) Export(ctx context.Context) (string, bool, error) {
+	export := filepath.Join(b.Directory, "export")
 
 	if _, err := os.Stat(export); err == nil {
 		return export, true, nil
