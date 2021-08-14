@@ -2,7 +2,6 @@ package main
 
 import (
 	"archive/tar"
-	"bufio"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -16,7 +15,6 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/bgentry/go-netrc/netrc"
 	git "github.com/go-git/go-git/v5"
@@ -26,8 +24,7 @@ import (
 )
 
 var (
-	verbose      bool
-	compileAppID string
+	verbose bool
 )
 
 func main() {
@@ -55,10 +52,6 @@ func dbg(w io.Writer, format string, a ...interface{}) {
 	}
 }
 
-func commit() (string, error) {
-	return commitDir(".")
-}
-
 func commitDir(dir string) (string, error) {
 	step(os.Stdout, "Fetching HEAD commit...")
 	r, err := git.PlainOpenWithOptions(dir, &git.PlainOpenOptions{DetectDotGit: true})
@@ -74,40 +67,6 @@ func commitDir(dir string) (string, error) {
 	}
 
 	return hsh.String(), nil
-}
-
-func outputStream(out io.Writer, stream string) error {
-	return outputStreamAttempt(out, stream, 0)
-}
-
-func outputStreamAttempt(out io.Writer, stream string, attempt int) error {
-	if attempt >= 5 {
-		return fmt.Errorf("failed to fetch outputStream after 5 attempts")
-	}
-
-	resp, err := http.Get(stream)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode > 399 {
-		if resp.StatusCode == 404 {
-			log(os.Stdout, "Output stream 404, likely the process is still starting up. Trying again in 2s...")
-			time.Sleep(2 * time.Second)
-
-			return outputStreamAttempt(out, stream, attempt+1)
-		} else {
-			return fmt.Errorf("output stream returned HTTP status: %v", resp.Status)
-		}
-	}
-
-	scn := bufio.NewScanner(resp.Body)
-	for scn.Scan() {
-		fmt.Fprintf(out, "%v\n", scn.Text())
-	}
-
-	return scn.Err()
 }
 
 func netrcClient() (*heroku.Service, error) {
@@ -154,14 +113,6 @@ func loadNetrc() (*netrc.Netrc, error) {
 	}
 
 	return netrc.ParseFile(filepath.Join(u.HomeDir, ".netrc"))
-}
-
-func ptrStr(ptr *string) string {
-	if ptr == nil {
-		return "<NIL>"
-	}
-
-	return *ptr
 }
 
 type tarball struct {

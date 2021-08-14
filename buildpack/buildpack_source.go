@@ -124,7 +124,7 @@ func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 			}
 
 			if !strings.HasPrefix(evalPath, basePath) {
-				return nil, fmt.Errorf("symlink breaks out of path!")
+				return nil, fmt.Errorf("symlink breaks out of path")
 			}
 
 			if err := os.Symlink(header.Linkname, path); err != nil {
