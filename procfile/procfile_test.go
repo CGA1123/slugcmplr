@@ -140,5 +140,4 @@ func Test_Write(t *testing.T) {
 			t.Fatalf("expected %v, got %v. (%v)", cmd, actualCmd, proc)
 		}
 	}
-
 }

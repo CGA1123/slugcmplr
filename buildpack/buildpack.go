@@ -30,7 +30,7 @@ func (b *Buildpack) Detect(ctx context.Context, build *Build) (string, bool, err
 	detect := filepath.Join(build.BuildDir, BuildpacksDir, b.Directory, "bin", "detect")
 	stdout := &strings.Builder{}
 
-	detectCmd := exec.CommandContext(ctx, detect, filepath.Join(build.BuildDir, AppDir))
+	detectCmd := exec.CommandContext(ctx, detect, filepath.Join(build.BuildDir, AppDir)) // #nosec G204
 	detectCmd.Stderr, detectCmd.Stdout = os.Stderr, stdout
 
 	if err := detectCmd.Run(); err != nil {

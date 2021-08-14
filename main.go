@@ -258,7 +258,7 @@ func outputStreamAttempt(out io.Writer, stream string, attempt int) error {
 		return fmt.Errorf("failed to fetch outputStream after 5 attempts")
 	}
 
-	resp, err := http.Get(stream)
+	resp, err := http.Get(stream) // #nosec G107
 	if err != nil {
 		return err
 	}

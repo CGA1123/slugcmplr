@@ -85,7 +85,7 @@ func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 				path = filepath.Join(basePath, parts[0])
 			}
 		} else {
-			path = filepath.Join(basePath, header.Name)
+			path = filepath.Join(basePath, header.Name) // #nosec G305
 		}
 
 		// Malicious tar files can have entries containing multiple ".." in
@@ -119,7 +119,7 @@ func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 				return nil, fmt.Errorf("failed to close written file (%v): %w", path, err)
 			}
 		case tar.TypeSymlink:
-			evalPath, err := filepath.EvalSymlinks(filepath.Join(path, "..", header.Linkname))
+			evalPath, err := filepath.EvalSymlinks(filepath.Join(path, "..", header.Linkname)) // #nosec G305
 			if err != nil {
 				return nil, fmt.Errorf("failed to evaluate symlink: %w", err)
 			}
