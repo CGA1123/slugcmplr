@@ -78,7 +78,13 @@ func setupProdApp(t *testing.T, h *heroku.Service, fixture string) (string, erro
 		return "", err
 	}
 
-	tarball, err := targz(cwd)
+	tmp, err := os.CreateTemp("", "")
+	if err != nil {
+		return "", fmt.Errorf("failed create tmpfile")
+	}
+	defer tmp.Close()
+
+	tarball, err := targz(cwd, tmp.Name())
 	if err != nil {
 		return "", fmt.Errorf("failed tarring directory: %v", err)
 	}
@@ -88,7 +94,7 @@ func setupProdApp(t *testing.T, h *heroku.Service, fixture string) (string, erro
 		return "", fmt.Errorf("error creating source: %w", err)
 	}
 
-	if err := upload(context.Background(), http.MethodPut, src.SourceBlob.PutURL, tarball.blob); err != nil {
+	if err := upload(context.Background(), http.MethodPut, src.SourceBlob.PutURL, tarball.path); err != nil {
 		return "", fmt.Errorf("failed to upload test app: %v", err)
 	}
 
