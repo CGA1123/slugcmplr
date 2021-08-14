@@ -74,7 +74,7 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 	appDir := filepath.Join(buildDir, buildpack.AppDir)
 
 	// tar up
-	tarball, err := targz(appDir)
+	tarball, err := targz(appDir, filepath.Join(buildDir, "app.tgz"))
 	if err != nil {
 		return fmt.Errorf("error creating tarball: %v", err)
 	}
@@ -102,7 +102,7 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 		return err
 	}
 
-	if err := upload(ctx, strings.ToUpper(slug.Blob.Method), slug.Blob.URL, tarball.blob); err != nil {
+	if err := upload(ctx, strings.ToUpper(slug.Blob.Method), slug.Blob.URL, tarball.path); err != nil {
 		return err
 	}
 

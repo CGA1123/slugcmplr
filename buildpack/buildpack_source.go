@@ -50,13 +50,14 @@ func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 	}
 	defer gz.Close()
 
-	basePath, err := filepath.EvalSymlinks(filepath.Join(baseDir, s.Dir()))
-	if err != nil {
-		return nil, err
-	}
-
+	basePath := filepath.Join(baseDir, s.Dir())
 	if err := os.MkdirAll(basePath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to mkdir (%v): %w", basePath, err)
+	}
+
+	basePath, err = filepath.EvalSymlinks(basePath)
+	if err != nil {
+		return nil, err
 	}
 
 	tarball := tar.NewReader(gz)

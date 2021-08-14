@@ -2,7 +2,6 @@ package main
 
 import (
 	"archive/tar"
-	"bytes"
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
@@ -116,15 +115,23 @@ func loadNetrc() (*netrc.Netrc, error) {
 }
 
 type tarball struct {
-	blob     *bytes.Buffer
+	path     string
 	checksum string
 }
 
 // targz will walk srcDirPath recursively and write the correspoding G-Zipped Tar
 // Archive to the given writers.
-func targz(srcDirPath string) (*tarball, error) {
-	sha, archive := sha256.New(), &bytes.Buffer{}
-	mw := io.MultiWriter(sha, archive)
+//
+// TODO: symlinks?
+func targz(srcDirPath, dstDirPath string) (*tarball, error) {
+	f, err := os.Create(dstDirPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tarfile: %w", err)
+	}
+	defer f.Close()
+
+	sha := sha256.New()
+	mw := io.MultiWriter(sha, f)
 
 	gzw := gzip.NewWriter(mw)
 	defer gzw.Close()
@@ -189,16 +196,35 @@ func targz(srcDirPath string) (*tarball, error) {
 		return nil, err
 	}
 
-	return &tarball{blob: archive, checksum: fmt.Sprintf("SHA256:%v", hex.EncodeToString(sha.Sum(nil)))}, nil
+	if err := f.Close(); err != nil {
+		return nil, err
+	}
+
+	return &tarball{
+		path:     dstDirPath,
+		checksum: fmt.Sprintf("SHA256:%v", hex.EncodeToString(sha.Sum(nil))),
+	}, nil
 }
 
-func upload(ctx context.Context, method, url string, blob *bytes.Buffer) error {
+func upload(ctx context.Context, method, url, path string) error {
 	dbg(os.Stdout, "uploading: %v %v", method, url)
 
-	req, err := http.NewRequestWithContext(ctx, method, url, blob)
+	f, err := os.Open(path)
 	if err != nil {
 		return err
 	}
+
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, url, f)
+	if err != nil {
+		return err
+	}
+
+	req.ContentLength = fi.Size()
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
