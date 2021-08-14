@@ -22,6 +22,9 @@ type Compile struct {
 }
 
 func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) error {
+	step(os.Stdout, "Reading metadata")
+	log(os.Stdout, "From: %v", filepath.Join(buildDir, "meta.json"))
+
 	m, err := os.Open(filepath.Join(buildDir, "meta.json"))
 	if err != nil {
 		return fmt.Errorf("failed to read metadata: %w", err)
@@ -33,6 +36,10 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 		return fmt.Errorf("failed to decode metadata: %w", err)
 	}
 
+	log(os.Stdout, "application: %v", c.Application)
+	log(os.Stdout, "stack: %v", c.Stack)
+	log(os.Stdout, "buildpacks: %v", len(c.Buildpacks))
+
 	build := &buildpack.Build{
 		CacheDir:      cacheDir,
 		BuildDir:      buildDir,
@@ -43,22 +50,23 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 	previousBuildpacks := make([]*buildpack.Buildpack, 0, len(c.Buildpacks))
 	var detectedBuildpack string
 
-	dbg(os.Stdout, "%v buildpacks detected", len(c.Buildpacks)) // TODO: should this be an error?
-
 	// run buildpacks
-	for i, bp := range c.Buildpacks {
-		dbg(os.Stdout, "running buildpack: %v", i)
-		detected, ok, err := bp.Run(ctx, previousBuildpacks, build)
+	for _, bp := range c.Buildpacks {
+		detected, ok, err := bp.Detect(ctx, build)
 		if err != nil {
 			return err
 		}
-
-		// TODO: should we fail if detect fails? i think heroku does this!
 		if !ok {
 			continue
 		}
 
-		detectedBuildpack = detected
+		step(os.Stdout, "%v app detected", detected)
+
+		if err := bp.Compile(ctx, previousBuildpacks, build); err != nil {
+			return err
+		}
+
+		step(os.Stdout, "Build succeeded!")
 
 		previousBuildpacks = append(previousBuildpacks, bp)
 	}
