@@ -23,7 +23,7 @@ type Prepare struct {
 // prepare
 //
 // - copy source dir       // DONE
-// - run slugcleanup       // TODO - do it as part of the copy?
+// - run slugcleanup       // TODO - do it as part of the copy? using Skip option
 // - download buildpacks   // DONE
 // - download config vars  // DONE
 // - dump metadata file    // DONE
