@@ -156,17 +156,6 @@ func destroyApp(t *testing.T, h *heroku.Service, app string) {
 	t.Logf("destroyed %v", app)
 }
 
-func setupCompileApp(t *testing.T, h *heroku.Service) string {
-	app, err := h.AppCreate(context.Background(), heroku.AppCreateOpts{})
-	if err != nil {
-		t.Fatalf("error creating compile app: %v", err)
-	}
-
-	t.Logf("created compile app %v", app.Name)
-
-	return app.Name
-}
-
 func ok(t *testing.T, err error) {
 	if err == nil {
 		return
@@ -175,7 +164,7 @@ func ok(t *testing.T, err error) {
 	t.Fatalf(err.Error())
 }
 
-func withHarness(t *testing.T, fixture string, f func(*testing.T, string, string, *heroku.Service)) {
+func withHarness(t *testing.T, fixture string, f func(*testing.T, string, *heroku.Service)) {
 	acceptance(t)
 
 	netrcF := setupNetrc(t)
@@ -196,10 +185,7 @@ func withHarness(t *testing.T, fixture string, f func(*testing.T, string, string
 
 	defer destroyApp(t, h, production)
 
-	compile := setupCompileApp(t, h)
-	defer destroyApp(t, h, compile)
-
-	f(t, production, compile, h)
+	f(t, production, h)
 }
 
 func mapEqual(a, b map[string]bool) bool {
