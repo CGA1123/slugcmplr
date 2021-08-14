@@ -18,7 +18,6 @@ type Compile struct {
 	Application   string                 `json:"application"`
 	Stack         string                 `json:"stack"`
 	SourceVersion string                 `json:"source_version"`
-	BuildDir      string                 `json:"build_dir"`
 	Buildpacks    []*buildpack.Buildpack `json:"buildpacks"`
 }
 
@@ -36,7 +35,7 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 
 	build := &buildpack.Build{
 		CacheDir:      cacheDir,
-		BuildDir:      c.BuildDir,
+		BuildDir:      buildDir,
 		Stack:         c.Stack,
 		SourceVersion: c.SourceVersion,
 	}
@@ -44,7 +43,7 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 	previousBuildpacks := make([]*buildpack.Buildpack, 0, len(c.Buildpacks))
 	var detectedBuildpack string
 
-	dbg(os.Stdout, "%v buildpacks detected", len(c.Buildpacks))
+	dbg(os.Stdout, "%v buildpacks detected", len(c.Buildpacks)) // TODO: should this be an error?
 
 	// run buildpacks
 	for i, bp := range c.Buildpacks {
@@ -53,8 +52,9 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 		if err != nil {
 			return err
 		}
+
+		// TODO: should we fail if detect fails? i think heroku does this!
 		if !ok {
-			// should we fail if detect fails? i think heroku does this!
 			continue
 		}
 
@@ -63,7 +63,7 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 		previousBuildpacks = append(previousBuildpacks, bp)
 	}
 
-	appDir := filepath.Join(c.BuildDir, buildpack.AppDir)
+	appDir := filepath.Join(buildDir, buildpack.AppDir)
 
 	// tar up
 	tarball, err := targz(appDir)
@@ -104,20 +104,17 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 }
 
 func compileCmd() *cobra.Command {
-	var cacheDir string
+	var cacheDir, buildDir string
 
 	cmd := &cobra.Command{
-		Use:   "compile [target]",
+		Use:   "compile",
 		Short: "compile the target applications",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			buildDir := args[0]
 			client, err := netrcClient()
 			if err != nil {
 				return err
 			}
-
-			dbg(os.Stdout, "buildDir: %v", buildDir)
 
 			if cacheDir == "" {
 				cd, err := os.MkdirTemp("", "")
@@ -128,12 +125,17 @@ func compileCmd() *cobra.Command {
 				cacheDir = cd
 			}
 
+			dbg(os.Stdout, "buildDir: %v", buildDir)
+			dbg(os.Stdout, "cacheDir: %v", cacheDir)
+
 			return compile(cmd.Context(), client, buildDir, cacheDir)
 		},
 	}
 
+	cmd.Flags().StringVar(&buildDir, "build-dir", "", "The build directory")
+	cmd.MarkFlagRequired("build-dir")
+
 	cmd.Flags().StringVar(&cacheDir, "cache-dir", "", "The cache directory")
-	cmd.MarkFlagRequired("cache-dir")
 
 	return cmd
 }

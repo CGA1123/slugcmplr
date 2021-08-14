@@ -104,7 +104,6 @@ func prepare(ctx context.Context, h *heroku.Service, p *Prepare) error {
 	c := &Compile{
 		Application:   p.Application,
 		Stack:         app.Stack.Name,
-		BuildDir:      p.BuildDir,
 		SourceVersion: commit,
 		Buildpacks:    bps,
 	}
@@ -161,10 +160,7 @@ func prepareCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&buildDir, "build-dir", "", "The build directory")
-	cmd.MarkFlagRequired("build-dir")
-
 	cmd.Flags().StringVar(&srcDir, "source-dir", "", "The source app directory")
-	cmd.MarkFlagRequired("source-dir")
 
 	return cmd
 }
