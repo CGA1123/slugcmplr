@@ -21,6 +21,11 @@ type Compile struct {
 	Buildpacks    []*buildpack.Buildpack `json:"buildpacks"`
 }
 
+type Release struct {
+	Application string `json:"application"`
+	Slug        string `json:"slug"`
+}
+
 func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) error {
 	step(os.Stdout, "Reading metadata")
 	log(os.Stdout, "From: %v", filepath.Join(buildDir, "meta.json"))
@@ -79,13 +84,13 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 		return fmt.Errorf("error creating tarball: %v", err)
 	}
 
-	f, err := os.Open(filepath.Join(appDir, "Procfile"))
+	pf, err := os.Open(filepath.Join(appDir, "Procfile"))
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer pf.Close()
 
-	p, err := procfile.Read(f)
+	p, err := procfile.Read(pf)
 	if err != nil {
 		return err
 	}
@@ -108,7 +113,21 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 
 	fmt.Printf("created slug %v\n", slug.ID)
 
-	return nil
+	r := &Release{Application: c.Application, Slug: slug.ID}
+
+	step(os.Stdout, "Writing metadata")
+	log(os.Stdout, "To: %v", filepath.Join(buildDir, "slug.json"))
+	f, err := os.Create(filepath.Join(buildDir, "slug.json"))
+	if err != nil {
+		return fmt.Errorf("failed to create meta file: %w", err)
+	}
+	defer f.Close()
+
+	if err := json.NewEncoder(f).Encode(r); err != nil {
+		return fmt.Errorf("error dumping metadata: %w", err)
+	}
+
+	return f.Close()
 }
 
 func compileCmd() *cobra.Command {
