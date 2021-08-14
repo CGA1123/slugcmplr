@@ -26,24 +26,8 @@ type Buildpack struct {
 	Directory string `json:"directory"`
 }
 
-func (b *Buildpack) Run(ctx context.Context, previousBuildpacks []*Buildpack, build *Build) (string, bool, error) {
-	detected, ok, err := b.Detect(ctx, build)
-	if err != nil {
-		return "", false, err
-	}
-	if !ok {
-		return "", false, nil
-	}
-
-	if err := b.Compile(ctx, previousBuildpacks, build); err != nil {
-		return "", false, err
-	}
-
-	return detected, true, nil
-}
-
 func (b *Buildpack) Detect(ctx context.Context, build *Build) (string, bool, error) {
-	detect := filepath.Join(b.Directory, "bin", "detect")
+	detect := filepath.Join(build.BuildDir, BuildpacksDir, b.Directory, "bin", "detect")
 	stdout := &strings.Builder{}
 
 	detectCmd := exec.CommandContext(ctx, detect, filepath.Join(build.BuildDir, AppDir))
@@ -61,12 +45,12 @@ func (b *Buildpack) Detect(ctx context.Context, build *Build) (string, bool, err
 }
 
 func (b *Buildpack) Compile(ctx context.Context, exports []*Buildpack, build *Build) error {
-	compile := filepath.Join(b.Directory, "bin", "compile")
+	compile := filepath.Join(build.BuildDir, BuildpacksDir, b.Directory, "bin", "compile")
 	commandParts := []string{}
 
 	// exports
 	for _, export := range exports {
-		dir, ok, err := export.Export(ctx)
+		dir, ok, err := export.Export(ctx, build)
 		if err != nil {
 			return err
 		}
@@ -93,8 +77,8 @@ func (b *Buildpack) Compile(ctx context.Context, exports []*Buildpack, build *Bu
 	return nil
 }
 
-func (b *Buildpack) Export(ctx context.Context) (string, bool, error) {
-	export := filepath.Join(b.Directory, "export")
+func (b *Buildpack) Export(ctx context.Context, build *Build) (string, bool, error) {
+	export := filepath.Join(build.BuildDir, BuildpacksDir, b.Directory, "export")
 
 	if _, err := os.Stat(export); err == nil {
 		return export, true, nil

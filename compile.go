@@ -31,7 +31,7 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 	}
 	defer m.Close()
 
-	var c *Compile
+	c := &Compile{}
 	if err := json.NewDecoder(m).Decode(c); err != nil {
 		return fmt.Errorf("failed to decode metadata: %w", err)
 	}

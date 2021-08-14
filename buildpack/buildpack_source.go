@@ -121,7 +121,7 @@ func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 		}
 	}
 
-	return &Buildpack{Directory: basePath}, nil
+	return &Buildpack{Directory: s.Dir()}, nil
 }
 
 func ParseSource(url string) (Source, error) {
