@@ -92,7 +92,12 @@ func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 		// clean the resulting path, evaluating any `..`)
 		//
 		// See: https://snyk.io/research/zip-slip-vulnerability
-		if !strings.HasPrefix(path, basePath) {
+		evalPath, err := filepath.EvalSymlinks(path)
+		if err != nil {
+			return nil, fmt.Errorf("error evaluating symlinks in: %v", path)
+		}
+
+		if !strings.HasPrefix(evalPath, basePath) {
 			return nil, fmt.Errorf("detected zipslip processing: %v (fullpath=%v)", header.Name, path)
 		}
 
@@ -115,29 +120,13 @@ func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 				return nil, fmt.Errorf("failed to close written file (%v): %w", path, err)
 			}
 		case tar.TypeSymlink:
-			if isRel(header.Linkname, basePath) && isRel(header.Name, basePath) {
-				if err := os.Symlink(header.Linkname, path); err != nil {
-					return nil, fmt.Errorf("failed to symlink %v -> %v: %w", header.Linkname, path, err)
-				}
-			} else {
-				return nil, fmt.Errorf("tar symlink not relative: %v -> %v", header.Linkname, header.Name)
+			if err := os.Symlink(header.Linkname, path); err != nil {
+				return nil, fmt.Errorf("failed to symlink %v -> %v: %w", header.Linkname, path, err)
 			}
 		}
 	}
 
 	return &Buildpack{Directory: s.Dir()}, nil
-}
-
-func isRel(candidate, target string) bool {
-	if filepath.IsAbs(candidate) {
-		return false
-	}
-	realpath, err := filepath.EvalSymlinks(filepath.Join(target, candidate))
-	if err != nil {
-		return false
-	}
-	relpath, err := filepath.Rel(target, realpath)
-	return err == nil && !strings.HasPrefix(filepath.Clean(relpath), "..")
 }
 
 func ParseSource(url string) (Source, error) {
