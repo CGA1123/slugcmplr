@@ -128,7 +128,7 @@ func Test_Write(t *testing.T) {
 
 	builder := &strings.Builder{}
 
-	procf.Write(builder)
+	procf.Write(builder) // nolint:errcheck // Writing to *strings.Builder doesn't fail
 
 	actualProcf, err := procfile.Read(strings.NewReader(builder.String()))
 	if err != nil {

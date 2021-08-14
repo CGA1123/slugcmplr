@@ -159,7 +159,7 @@ func compileCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&buildDir, "build-dir", "", "The build directory")
-	cmd.MarkFlagRequired("build-dir")
+	cmd.MarkFlagRequired("build-dir") // nolint:errcheck
 
 	cmd.Flags().StringVar(&cacheDir, "cache-dir", "", "The cache directory")
 

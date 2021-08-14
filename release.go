@@ -37,12 +37,19 @@ func release(ctx context.Context, h *heroku.Service, buildDir string) error {
 
 	step(os.Stdout, "Releasing slug %v to %v", r.Slug, r.Application)
 
-	h.ReleaseCreate(ctx, r.Application, heroku.ReleaseCreateOpts{
+	release, err := h.ReleaseCreate(ctx, r.Application, heroku.ReleaseCreateOpts{
 		Slug:        r.Slug,
 		Description: heroku.String(fmt.Sprintf("Deployed %v", r.Commit[:8])),
 	})
+	if err != nil {
+		return fmt.Errorf("error creating release: %w", err)
+	}
 
-	return nil
+	if release.OutputStreamURL != nil {
+		return outputStream(os.Stdout, *release.OutputStreamURL)
+	} else {
+		return fmt.Errorf("release outputStreamURL nil")
+	}
 }
 
 func releaseCmd() *cobra.Command {
@@ -62,7 +69,7 @@ func releaseCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&buildDir, "build-dir", "", "The build directory")
-	cmd.MarkFlagRequired("build-dir")
+	cmd.MarkFlagRequired("build-dir") // nolint:errcheck
 
 	return cmd
 }
