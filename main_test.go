@@ -140,7 +140,7 @@ func test_Rails(t *testing.T) {
 func endToEndSmoke(t *testing.T, fixture string) {
 	t.Helper()
 
-	withHarness(t, fixture, func(t *testing.T, app, _ string, h *heroku.Service) {
+	withHarness(t, fixture, func(t *testing.T, app, src string, h *heroku.Service) {
 		pattn := strings.ReplaceAll(fixture, "/", "__") + "_"
 		buildDir, err := os.MkdirTemp("", pattn)
 		if err != nil {
@@ -153,6 +153,7 @@ func endToEndSmoke(t *testing.T, fixture string) {
 		prepareCmd.SetArgs([]string{
 			"prepare", app,
 			"--build-dir", buildDir,
+			"--src-dir", src,
 			"--verbose"})
 		ok(t, prepareCmd.Execute())
 

@@ -83,22 +83,13 @@ func setupApp(t *testing.T, h *heroku.Service, fixture string) (string, string, 
 
 	t.Logf("cloned %v into: %v", fixture, dir)
 
-	if err := os.Chdir(dir); err != nil {
-		return "", "", fmt.Errorf("failed to change directories: %v", err)
-	}
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", "", err
-	}
-
 	tmp, err := os.CreateTemp("", "")
 	if err != nil {
 		return "", "", fmt.Errorf("failed create tmpfile")
 	}
 	defer tmp.Close()
 
-	tarball, err := targz(cwd, tmp.Name())
+	tarball, err := targz(dir, tmp.Name())
 	if err != nil {
 		return "", "", fmt.Errorf("failed tarring directory: %v", err)
 	}
