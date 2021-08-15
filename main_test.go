@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cga1123/slugcmplr/buildpack"
 	heroku "github.com/heroku/heroku-go/v5"
 )
 
@@ -57,7 +58,39 @@ func Test_Prepare(t *testing.T) {
 			t.Fatalf("buildpacks were not equal!")
 		}
 
-		// TODO: expect env to have been dumped
+		// make sure we've dumped config vars
+		entries, err := os.ReadDir(filepath.Join(buildDir, buildpack.EnvironmentDir))
+		if err != nil {
+			t.Fatalf("failed to read env dir entries: %v", err)
+		}
+
+		expectedConfig := map[string]string{"PING": "PONG", "PONG": "PING"}
+		actualConfig := map[string]string{}
+		for _, entry := range entries {
+			path := filepath.Join(buildDir, buildpack.EnvironmentDir, entry.Name())
+			b, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("error reading %v", path)
+			}
+
+			actualConfig[entry.Name()] = string(b)
+		}
+
+		if len(expectedConfig) != len(actualConfig) {
+			t.Fatalf("expected %v config vars, got %v", len(expectedConfig), len(actualConfig))
+		}
+
+		for k, v := range expectedConfig {
+			av, ok := actualConfig[k]
+			if !ok {
+				t.Fatalf("expected key %v to be present, it was not.", k)
+			}
+
+			if v != av {
+				t.Fatalf("expected key %v to be %v, got %v", k, v, av)
+			}
+		}
+
 		// TODO: expect source to have been copied (and slugcleanup to have run!)
 		// TODO: expect buildpacks to have been downloaded
 	})

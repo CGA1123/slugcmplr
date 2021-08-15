@@ -17,6 +17,22 @@ import (
 	heroku "github.com/heroku/heroku-go/v5"
 )
 
+func MapEqual(a, b map[string]interface{}, f func(string) bool) bool {
+	for ka := range a {
+		if !f(ka) {
+			return false
+		}
+	}
+
+	for kb := range b {
+		if !f(kb) {
+			return false
+		}
+	}
+
+	return true
+}
+
 func SliceEqual(a, b interface{}, eq func(i int) bool) bool {
 	av, bv := reflect.ValueOf(a), reflect.ValueOf(b)
 	if av.Len() != bv.Len() {
@@ -209,32 +225,6 @@ func withHarness(t *testing.T, fixture string, f func(*testing.T, string, string
 	defer destroyApp(t, h, production)
 
 	f(t, production, dir, h)
-}
-
-func mapEqual(a, b map[string]bool) bool {
-	for ka, va := range a {
-		vb, ok := b[ka]
-		if !ok {
-			return false
-		}
-
-		if va != vb {
-			return false
-		}
-	}
-
-	for kb, vb := range b {
-		va, ok := b[kb]
-		if !ok {
-			return false
-		}
-
-		if va != vb {
-			return false
-		}
-	}
-
-	return true
 }
 
 func fetchBuildpacks(t *testing.T, h *heroku.Service, app string) []string {
