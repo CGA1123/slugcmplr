@@ -146,7 +146,7 @@ func setupApp(t *testing.T, h *heroku.Service, fixture string) (string, string, 
 func waitForBuild(t *testing.T, h *heroku.Service, app *heroku.AppSetup) (*heroku.AppSetup, error) {
 	id, name := app.ID, app.App.Name
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 100; i++ {
 		time.Sleep(10 * time.Second)
 
 		info, err := h.AppSetupInfo(context.Background(), id)

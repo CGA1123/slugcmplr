@@ -23,6 +23,7 @@ func Test_Suite(t *testing.T) {
 		t.Run("Test_Prepare", test_Prepare)
 		t.Run("Test_Binary", test_Binary)
 		t.Run("Test_Go", test_Go)
+		t.Run("Test_Rails", test_Rails)
 	})
 }
 
@@ -128,6 +129,12 @@ func test_Go(t *testing.T) {
 	t.Parallel()
 
 	endToEndSmoke(t, "CGA1123/slugcmplr-fixture-go")
+}
+
+func test_Rails(t *testing.T) {
+	t.Parallel()
+
+	endToEndSmoke(t, "CGA1123/slugcmplr-fixture-rails")
 }
 
 func endToEndSmoke(t *testing.T, fixture string) {
