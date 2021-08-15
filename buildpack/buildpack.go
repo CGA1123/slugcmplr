@@ -69,7 +69,7 @@ func (b *Buildpack) Compile(ctx context.Context, exports []*Buildpack, build *Bu
 	// compile
 	commandParts = append(commandParts, fmt.Sprintf("'%v' '%v' '%v' '%v'", compile, appDir, build.CacheDir, envDir))
 
-	compileCmd := exec.CommandContext(ctx, "bash", "-c", strings.Join(commandParts, ";"))
+	compileCmd := exec.CommandContext(ctx, "bash", "-c", strings.Join(commandParts, ";")) // #nosec G204
 	compileCmd.Stderr, compileCmd.Stdout = os.Stderr, os.Stdout
 	if err := compileCmd.Run(); err != nil {
 		return fmt.Errorf("failed to compile: %w", err)

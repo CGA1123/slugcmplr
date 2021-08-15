@@ -112,8 +112,14 @@ func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 				return nil, err
 			}
 
-			if _, err := io.Copy(f, tarball); err != nil {
-				return nil, err
+			for {
+				_, err := io.CopyN(f, tarball, 1024)
+				if err != nil {
+					if err == io.EOF {
+						break
+					}
+					return nil, err
+				}
 			}
 
 			if err := f.Close(); err != nil {

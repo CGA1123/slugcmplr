@@ -3,11 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"reflect"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -133,7 +131,9 @@ func setupApp(t *testing.T, h *heroku.Service, fixture string) (string, string, 
 
 	info, err := waitForBuild(t, h, app)
 	if info != nil && info.Build != nil {
-		outputStream(os.Stdout, info.Build.OutputStreamURL)
+		if err := outputStream(os.Stdout, info.Build.OutputStreamURL); err != nil {
+			return app.App.Name, dir, fmt.Errorf("failed to output build log: %w", err)
+		}
 	}
 
 	if err != nil {
@@ -209,87 +209,4 @@ func withHarness(t *testing.T, fixture string, f func(*testing.T, string, string
 	defer destroyApp(t, h, production)
 
 	f(t, production, dir, h)
-}
-
-func mapEqual(a, b map[string]bool) bool {
-	for ka, va := range a {
-		vb, ok := b[ka]
-		if !ok {
-			return false
-		}
-
-		if va != vb {
-			return false
-		}
-	}
-
-	for kb, vb := range b {
-		va, ok := b[kb]
-		if !ok {
-			return false
-		}
-
-		if va != vb {
-			return false
-		}
-	}
-
-	return true
-}
-
-func fetchBuildpacks(t *testing.T, h *heroku.Service, app string) []string {
-	packs, err := h.BuildpackInstallationList(context.Background(), app, nil)
-	ok(t, err)
-
-	sort.Slice(packs, func(i, j int) bool {
-		return packs[i].Ordinal < packs[j].Ordinal
-	})
-
-	names := make([]string, len(packs))
-	for i, v := range packs {
-		names[i] = v.Buildpack.Name
-	}
-
-	return names
-}
-
-func fetchFeats(t *testing.T, h *heroku.Service, app string) map[string]bool {
-	feats, err := h.AppFeatureList(context.Background(), app, nil)
-	ok(t, err)
-
-	featMap := make(map[string]bool, len(feats))
-	for _, feat := range feats {
-		featMap[feat.Name] = feat.Enabled
-	}
-
-	return featMap
-}
-
-func latestReleaseLog(t *testing.T, h *heroku.Service, app string) string {
-	releases, err := h.ReleaseList(context.Background(), app, &heroku.ListRange{
-		Descending: true, Field: "version"})
-	ok(t, err)
-
-	t.Logf("found release(%v): %v", releases[0].Version, releases[0].Description)
-
-	url := releases[0].OutputStreamURL
-	if url == nil {
-		t.Fatalf("latest release output stream url is nil.")
-	}
-
-	resp, err := http.Get(*url)
-	ok(t, err)
-	defer resp.Body.Close()
-
-	if resp.StatusCode > 399 {
-		t.Logf("failed to fetch release status: %v", resp.Status)
-		t.Fail()
-
-		return ""
-	}
-
-	b, err := io.ReadAll(resp.Body)
-	ok(t, err)
-
-	return string(b)
 }

@@ -47,7 +47,9 @@ func release(ctx context.Context, h *heroku.Service, buildDir string) error {
 	}
 
 	if release.OutputStreamURL != nil {
-		outputStream(os.Stdout, *release.OutputStreamURL)
+		if err := outputStream(os.Stdout, *release.OutputStreamURL); err != nil {
+			return fmt.Errorf("failed to stream output: %w", err)
+		}
 	}
 
 	for i := 0; i < 5; i++ {
