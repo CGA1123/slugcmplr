@@ -12,8 +12,8 @@ import (
 func Test_Prepare(t *testing.T) {
 	t.Parallel()
 
-	withHarness(t, "CGA1123/slugcmplr-fixture-go", func(t *testing.T, appName, repoDir string, h *heroku.Service) {
-		buildDir, err := os.MkdirTemp("", "CGA1123__slugmplr-fixture-go_build_")
+	withHarness(t, "CGA1123/slugcmplr-fixture-binary", func(t *testing.T, appName, repoDir string, h *heroku.Service) {
+		buildDir, err := os.MkdirTemp("", "CGA1123__slugmplr-fixture-binary_build_")
 		if err != nil {
 			t.Fatalf("failed to create build directory: %v", err)
 		}
@@ -44,8 +44,7 @@ func Test_Prepare(t *testing.T) {
 
 		expected := []string{
 			"https://github.com/CGA1123/heroku-buildpack-bar",
-			"https://github.com/CGA1123/heroku-buildpack-foo",
-			"urn:buildpack:heroku/go"}
+			"https://github.com/CGA1123/heroku-buildpack-foo"}
 
 		if !SliceEqual(expected, meta.Buildpacks, func(i int) bool {
 			eq := expected[i] == meta.Buildpacks[i].URL
