@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	heroku "github.com/heroku/heroku-go/v5"
 	"github.com/spf13/cobra"
@@ -46,10 +47,32 @@ func release(ctx context.Context, h *heroku.Service, buildDir string) error {
 	}
 
 	if release.OutputStreamURL != nil {
-		return outputStream(os.Stdout, *release.OutputStreamURL)
-	} else {
-		return fmt.Errorf("release outputStreamURL nil")
+		outputStream(os.Stdout, *release.OutputStreamURL)
 	}
+
+	for i := 0; i < 5; i++ {
+		log(os.Stdout, "checking release status... (attempt %v)", i+1)
+
+		info, err := h.ReleaseInfo(ctx, r.Application, release.ID)
+		if err != nil {
+			return fmt.Errorf("failed to fetch release info: %w", err)
+		}
+
+		log(os.Stdout, "status: %v", info.Status)
+
+		switch info.Status {
+		case "failed":
+			return fmt.Errorf("release failed")
+		case "succeeded":
+			return nil
+		case "pending":
+			continue
+		}
+
+		time.Sleep(5 * time.Second)
+	}
+
+	return fmt.Errorf("release still pending after multiple attempts")
 }
 
 func releaseCmd() *cobra.Command {

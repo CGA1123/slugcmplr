@@ -107,5 +107,13 @@ func Test_Prepare(t *testing.T) {
 				"--build-dir", buildDir,
 				"--verbose"})
 			ok(t, compileCmd.Execute())
+
+			// Release
+			releaseCmd := Cmd()
+			releaseCmd.SetArgs([]string{
+				"release",
+				"--build-dir", buildDir,
+				"--verbose"})
+			ok(t, releaseCmd.Execute())
 		})
 }
