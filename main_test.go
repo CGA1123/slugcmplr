@@ -153,7 +153,7 @@ func endToEndSmoke(t *testing.T, fixture string) {
 		prepareCmd.SetArgs([]string{
 			"prepare", app,
 			"--build-dir", buildDir,
-			"--src-dir", src,
+			"--source-dir", src,
 			"--verbose"})
 		ok(t, prepareCmd.Execute())
 
