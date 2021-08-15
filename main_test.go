@@ -4,13 +4,28 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/cga1123/slugcmplr/buildpack"
 	heroku "github.com/heroku/heroku-go/v5"
 )
 
-func Test_Prepare(t *testing.T) {
+func Test_Suite(t *testing.T) {
+	t.Parallel()
+
+	netrcF := setupNetrc(t)
+	os.Setenv("NETRC", netrcF)
+	defer os.Remove(netrcF)
+
+	t.Run("End to end tests", func(t *testing.T) {
+		t.Run("Test_Prepare", test_Prepare)
+		t.Run("Test_Binary", test_Binary)
+		t.Run("Test_Go", test_Go)
+	})
+}
+
+func test_Prepare(t *testing.T) {
 	t.Parallel()
 
 	withHarness(t, "CGA1123/slugcmplr-fixture-binary",
@@ -99,21 +114,54 @@ func Test_Prepare(t *testing.T) {
 					t.Fatalf("expected key %v to be %v, got %v", k, v, av)
 				}
 			}
-
-			// Compile
-			compileCmd := Cmd()
-			compileCmd.SetArgs([]string{
-				"compile",
-				"--build-dir", buildDir,
-				"--verbose"})
-			ok(t, compileCmd.Execute())
-
-			// Release
-			releaseCmd := Cmd()
-			releaseCmd.SetArgs([]string{
-				"release",
-				"--build-dir", buildDir,
-				"--verbose"})
-			ok(t, releaseCmd.Execute())
 		})
+}
+
+func test_Binary(t *testing.T) {
+	t.Parallel()
+
+	endToEndSmoke(t, "CGA1123/slugcmplr-fixture-binary")
+}
+
+func test_Go(t *testing.T) {
+	t.Parallel()
+
+	endToEndSmoke(t, "CGA1123/slugcmplr-fixture-go")
+}
+
+func endToEndSmoke(t *testing.T, fixture string) {
+	t.Helper()
+
+	withHarness(t, fixture, func(t *testing.T, app, _ string, h *heroku.Service) {
+		pattn := strings.ReplaceAll(fixture, "/", "__") + "_"
+		buildDir, err := os.MkdirTemp("", pattn)
+		if err != nil {
+			t.Fatalf("failed to create build director: %v", err)
+		}
+		defer os.RemoveAll(buildDir)
+
+		// Prepare
+		prepareCmd := Cmd()
+		prepareCmd.SetArgs([]string{
+			"prepare", app,
+			"--build-dir", buildDir,
+			"--verbose"})
+		ok(t, prepareCmd.Execute())
+
+		// Compile
+		compileCmd := Cmd()
+		compileCmd.SetArgs([]string{
+			"compile",
+			"--build-dir", buildDir,
+			"--verbose"})
+		ok(t, compileCmd.Execute())
+
+		// Release
+		releaseCmd := Cmd()
+		releaseCmd.SetArgs([]string{
+			"release",
+			"--build-dir", buildDir,
+			"--verbose"})
+		ok(t, releaseCmd.Execute())
+	})
 }

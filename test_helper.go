@@ -190,10 +190,6 @@ func ok(t *testing.T, err error) {
 func withHarness(t *testing.T, fixture string, f func(*testing.T, string, string, *heroku.Service)) {
 	acceptance(t)
 
-	netrcF := setupNetrc(t)
-	os.Setenv("NETRC", netrcF)
-	defer os.Remove(netrcF)
-
 	h, err := netrcClient()
 	ok(t, err)
 
