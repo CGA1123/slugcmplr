@@ -20,6 +20,7 @@ type Source interface {
 }
 
 type targzSource struct {
+	RawURL string
 	URL    string
 	github bool
 }
@@ -134,13 +135,14 @@ func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 		}
 	}
 
-	return &Buildpack{Directory: s.Dir()}, nil
+	return &Buildpack{Directory: s.Dir(), URL: s.RawURL}, nil
 }
 
 func ParseSource(url string) (Source, error) {
 	// official buildpack
 	if strings.HasPrefix(url, "urn:buildpack:") {
 		return &targzSource{
+			RawURL: url,
 			URL:    fmt.Sprintf("https://buildpack-registry.s3.amazonaws.com/buildpacks/%v.tgz", strings.TrimPrefix(url, "urn:buildpack:")),
 			github: false,
 		}, nil
@@ -158,7 +160,7 @@ func ParseSource(url string) (Source, error) {
 			ref = parts[1]
 		}
 
-		return &targzSource{URL: fmt.Sprintf("%v/tarball/%v", repo, ref), github: true}, nil
+		return &targzSource{URL: fmt.Sprintf("%v/tarball/%v", repo, ref), RawURL: url, github: true}, nil
 	}
 
 	// TODO: support non github .git URLs (clone)

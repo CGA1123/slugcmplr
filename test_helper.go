@@ -8,10 +8,12 @@ import (
 	"os"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/bgentry/go-netrc/netrc"
+	git "github.com/go-git/go-git/v5"
 	heroku "github.com/heroku/heroku-go/v5"
 )
 
@@ -66,34 +68,50 @@ func setupNetrc(t *testing.T) string {
 	return tmp.Name()
 }
 
-func setupProdApp(t *testing.T, h *heroku.Service, fixture string) (string, error) {
-	if err := os.Chdir("./fixtures/" + fixture); err != nil {
-		return "", fmt.Errorf("failed to change directories: %v", err)
+func setupApp(t *testing.T, h *heroku.Service, fixture string) (string, string, error) {
+	dir, err := os.MkdirTemp("", strings.ReplaceAll(fixture, "/", "__")+"_")
+	if err != nil {
+		return "", "", fmt.Errorf("failed to create tempdir: %w", err)
+	}
+
+	t.Logf("tempdir for %v created: %v", fixture, dir)
+
+	if _, err := git.PlainClone(dir, false, &git.CloneOptions{
+		URL:   "https://github.com/" + fixture,
+		Depth: 1,
+	}); err != nil {
+		return "", "", fmt.Errorf("failed to clone %v: %w", fixture, err)
+	}
+
+	t.Logf("cloned %v into: %v", fixture, dir)
+
+	if err := os.Chdir(dir); err != nil {
+		return "", "", fmt.Errorf("failed to change directories: %v", err)
 	}
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	tmp, err := os.CreateTemp("", "")
 	if err != nil {
-		return "", fmt.Errorf("failed create tmpfile")
+		return "", "", fmt.Errorf("failed create tmpfile")
 	}
 	defer tmp.Close()
 
 	tarball, err := targz(cwd, tmp.Name())
 	if err != nil {
-		return "", fmt.Errorf("failed tarring directory: %v", err)
+		return "", "", fmt.Errorf("failed tarring directory: %v", err)
 	}
 
 	src, err := h.SourceCreate(context.Background())
 	if err != nil {
-		return "", fmt.Errorf("error creating source: %w", err)
+		return "", "", fmt.Errorf("error creating source: %w", err)
 	}
 
 	if err := upload(context.Background(), http.MethodPut, src.SourceBlob.PutURL, tarball.path); err != nil {
-		return "", fmt.Errorf("failed to upload test app: %v", err)
+		return "", "", fmt.Errorf("failed to upload test app: %v", err)
 	}
 
 	app, err := h.AppSetupCreate(context.Background(), heroku.AppSetupCreateOpts{
@@ -107,20 +125,25 @@ func setupProdApp(t *testing.T, h *heroku.Service, fixture string) (string, erro
 		},
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to create application: %v", err)
+		return "", "", fmt.Errorf("failed to create application: %v", err)
 	}
 
 	t.Logf("created app for %v (%v)", fixture, app.App.Name)
 	t.Logf("(%v) checking build status...", app.App.Name)
 
-	if err := waitForBuild(t, h, app); err != nil {
-		return app.App.Name, err
+	info, err := waitForBuild(t, h, app)
+	if info != nil && info.Build != nil {
+		outputStream(os.Stdout, info.Build.OutputStreamURL)
 	}
 
-	return app.App.Name, nil
+	if err != nil {
+		return app.App.Name, dir, err
+	}
+
+	return app.App.Name, dir, nil
 }
 
-func waitForBuild(t *testing.T, h *heroku.Service, app *heroku.AppSetup) error {
+func waitForBuild(t *testing.T, h *heroku.Service, app *heroku.AppSetup) (*heroku.AppSetup, error) {
 	id, name := app.ID, app.App.Name
 
 	for i := 0; i < 10; i++ {
@@ -128,21 +151,21 @@ func waitForBuild(t *testing.T, h *heroku.Service, app *heroku.AppSetup) error {
 
 		info, err := h.AppSetupInfo(context.Background(), id)
 		if err != nil {
-			return fmt.Errorf("(%v) error fetching app info: %v", name, err)
+			return nil, fmt.Errorf("(%v) error fetching app info: %v", name, err)
 		}
 
 		t.Logf("(%v) status: %v", name, info.Status)
 
 		if info.Status == "failed" {
-			return fmt.Errorf("(%v) failed to setup test app: %v", name, info.FailureMessage)
+			return info, fmt.Errorf("(%v) failed to setup test app: %v", name, info.FailureMessage)
 		}
 
 		if info.Status == "succeeded" {
-			return nil
+			return info, nil
 		}
 	}
 
-	return fmt.Errorf("(%v) build still pending after a long time, aborting", name)
+	return nil, fmt.Errorf("(%v) build still pending after a long time, aborting", name)
 }
 
 func destroyApp(t *testing.T, h *heroku.Service, app string) {
@@ -164,7 +187,7 @@ func ok(t *testing.T, err error) {
 	t.Fatalf(err.Error())
 }
 
-func withHarness(t *testing.T, fixture string, f func(*testing.T, string, *heroku.Service)) {
+func withHarness(t *testing.T, fixture string, f func(*testing.T, string, string, *heroku.Service)) {
 	acceptance(t)
 
 	netrcF := setupNetrc(t)
@@ -174,7 +197,7 @@ func withHarness(t *testing.T, fixture string, f func(*testing.T, string, *herok
 	h, err := netrcClient()
 	ok(t, err)
 
-	production, err := setupProdApp(t, h, fixture)
+	production, dir, err := setupApp(t, h, fixture)
 	if err != nil {
 		if production != "" {
 			destroyApp(t, h, production)
@@ -185,7 +208,7 @@ func withHarness(t *testing.T, fixture string, f func(*testing.T, string, *herok
 
 	defer destroyApp(t, h, production)
 
-	f(t, production, h)
+	f(t, production, dir, h)
 }
 
 func mapEqual(a, b map[string]bool) bool {

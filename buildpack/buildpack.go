@@ -23,6 +23,7 @@ type Build struct {
 }
 
 type Buildpack struct {
+	URL       string `json:"url"`
 	Directory string `json:"directory"`
 }
 
