@@ -20,6 +20,7 @@ type Prepare struct {
 	BuildDir    string
 }
 
+// nolint: godot
 // prepare
 //
 // - copy source dir       // DONE

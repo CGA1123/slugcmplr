@@ -18,6 +18,7 @@ func Test_Suite(t *testing.T) {
 	os.Setenv("NETRC", netrcF)
 	defer os.Remove(netrcF)
 
+	// nolint: paralleltest
 	t.Run("End to end tests", func(t *testing.T) {
 		t.Run("Test_Prepare", test_Prepare)
 		t.Run("Test_Binary", test_Binary)
