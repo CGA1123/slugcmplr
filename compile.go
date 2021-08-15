@@ -66,18 +66,13 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 			return err
 		}
 
-		step(os.Stdout, "Build succeeded!")
-
 		previousBuildpacks = append(previousBuildpacks, bp)
 	}
 
 	appDir := filepath.Join(buildDir, buildpack.AppDir)
 
-	// tar up
-	tarball, err := targz(appDir, filepath.Join(buildDir, "app.tgz"))
-	if err != nil {
-		return fmt.Errorf("error creating tarball: %v", err)
-	}
+	// read Procfile
+	step(os.Stdout, "Discovering process types")
 
 	pf, err := os.Open(filepath.Join(appDir, "Procfile"))
 	if err != nil {
@@ -88,6 +83,14 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 	p, err := procfile.Read(pf)
 	if err != nil {
 		return err
+	}
+
+	// tar up
+	step(os.Stdout, "Compressing...")
+
+	tarball, err := targz(appDir, filepath.Join(buildDir, "app.tgz"))
+	if err != nil {
+		return fmt.Errorf("error creating tarball: %v", err)
 	}
 
 	// create a slug
