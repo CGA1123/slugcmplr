@@ -1,6 +1,6 @@
 ARG STACK
 
-FROM heroku/heroku:${STACK}-build
+FROM golang:1.16-buster AS builder
 
 COPY . /app
 WORKDIR /app
@@ -8,7 +8,10 @@ WORKDIR /app
 RUN go mod download
 RUN go build -o bin/ .
 
-COPY /app/bin/slugcmplr /usr/bin/slugcmplr
+FROM heroku/heroku:${STACK}-build
+
+
+COPY --from=builder /app/bin/slugcmplr /usr/bin/slugcmplr
 
 RUN rm -rf /app
 
