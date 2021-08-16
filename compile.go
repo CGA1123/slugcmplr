@@ -15,6 +15,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const DefaultImage = "ghcr.io/cga1123/slugcmplr:%v"
+
 type Compile struct {
 	Application   string                 `json:"application"`
 	Stack         string                 `json:"stack"`
@@ -22,7 +24,7 @@ type Compile struct {
 	Buildpacks    []*buildpack.Buildpack `json:"buildpacks"`
 }
 
-func bootstrapDocker(ctx context.Context, buildDir, cacheDir, netrc string) error {
+func bootstrapDocker(ctx context.Context, buildDir, cacheDir, netrc, image string) error {
 	step(os.Stdout, "Reading metadata")
 	log(os.Stdout, "From: %v", filepath.Join(buildDir, "meta.json"))
 
@@ -42,7 +44,7 @@ func bootstrapDocker(ctx context.Context, buildDir, cacheDir, netrc string) erro
 		"--volume", fmt.Sprintf("%v:/tmp/cache", cacheDir),
 		"--volume", fmt.Sprintf("%v:/tmp/netrc", netrc),
 		"--env", "NETRC=/tmp/netrc",
-		fmt.Sprintf("ghcr.io/cga1123/slugcmplr:%v", c.Stack),
+		fmt.Sprintf(image, c.Stack),
 	)
 
 	dockerRun.Stderr, dockerRun.Stdout = os.Stderr, os.Stdout
@@ -162,7 +164,7 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 }
 
 func compileCmd() *cobra.Command {
-	var cacheDir, buildDir string
+	var cacheDir, buildDir, image string
 	var local bool
 
 	cmd := &cobra.Command{
@@ -195,7 +197,7 @@ func compileCmd() *cobra.Command {
 					return fmt.Errorf("failed to find netrc path: %w", err)
 				}
 
-				return bootstrapDocker(cmd.Context(), buildDir, cacheDir, netrcpath)
+				return bootstrapDocker(cmd.Context(), buildDir, cacheDir, netrcpath, image)
 			}
 		},
 	}
@@ -205,6 +207,7 @@ func compileCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&local, "local", false, "Run compilation locally")
 	cmd.Flags().StringVar(&cacheDir, "cache-dir", "", "The cache directory")
+	cmd.Flags().StringVar(&image, "image", DefaultImage, "Override docker image to use, include %v in order to substitute the stack name")
 
 	return cmd
 }
