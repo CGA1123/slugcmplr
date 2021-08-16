@@ -49,7 +49,10 @@ func bootstrapDocker(ctx context.Context, buildDir, cacheDir, netrc, image strin
 		"--volume", fmt.Sprintf("%v:/tmp/netrc", netrc),
 		"--env", "NETRC=/tmp/netrc",
 		imageName,
-		`compile --local --build-dir /tmp/build --cache-dir /tmp/cache`,
+		"compile",
+		"--local",
+		"--build-dir", "/tmp/build",
+		"--cache-dir", "/tmp/cache",
 	) // #nosec G204
 
 	dbg(os.Stdout, "dockerRun: %v", dockerRun.String())
