@@ -10,6 +10,6 @@ RUN GOOS=linux GOARCH=amd64 go build -o bin/ .
 
 FROM heroku/heroku:${STACK}-build
 
-COPY --from=builder /app/bin/slugcmplr /bin/slugcmplr
+COPY --from=builder /app/bin/slugcmplr /usr/bin/slugcmplr
 
-CMD /bin/slugcmplr compile --build-dir /tmp/build --cache-dir /tmp/cache --local
+CMD /usr/bin/slugcmplr compile --build-dir /tmp/build --cache-dir /tmp/cache --local
