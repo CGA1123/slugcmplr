@@ -6,7 +6,7 @@ COPY . /app
 WORKDIR /app
 
 RUN go mod download
-RUN go build -o bin/ .
+RUN CGO_ENABLED=0 go build -o bin/ .
 
 FROM heroku/heroku:${STACK}-build
 
