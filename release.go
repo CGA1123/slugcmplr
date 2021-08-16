@@ -18,7 +18,7 @@ type Release struct {
 	Commit      string `json:"commit"`
 }
 
-func release(ctx context.Context, h *heroku.Service, buildDir string) error {
+func release(ctx context.Context, h *heroku.Service, buildDir, application string) error {
 	step(os.Stdout, "Reading release")
 	log(os.Stdout, "From: %v", filepath.Join(buildDir, "release.json"))
 
@@ -33,12 +33,16 @@ func release(ctx context.Context, h *heroku.Service, buildDir string) error {
 		return fmt.Errorf("failed to decode release data: %w", err)
 	}
 
-	log(os.Stdout, "application: %v", r.Application)
+	if application == "" {
+		application = r.Application
+	}
+
+	log(os.Stdout, "application: %v", application)
 	log(os.Stdout, "slug: %v", r.Slug)
 
 	step(os.Stdout, "Releasing slug %v to %v", r.Slug, r.Application)
 
-	release, err := h.ReleaseCreate(ctx, r.Application, heroku.ReleaseCreateOpts{
+	release, err := h.ReleaseCreate(ctx, application, heroku.ReleaseCreateOpts{
 		Slug:        r.Slug,
 		Description: heroku.String(fmt.Sprintf("Deployed %v", r.Commit[:8])),
 	})
@@ -78,7 +82,7 @@ func release(ctx context.Context, h *heroku.Service, buildDir string) error {
 }
 
 func releaseCmd() *cobra.Command {
-	var buildDir string
+	var buildDir, application string
 	cmd := &cobra.Command{
 		Use:   "release",
 		Short: "release a slug",
@@ -89,12 +93,14 @@ func releaseCmd() *cobra.Command {
 				return err
 			}
 
-			return release(cmd.Context(), client, buildDir)
+			return release(cmd.Context(), client, buildDir, application)
 		},
 	}
 
 	cmd.Flags().StringVar(&buildDir, "build-dir", "", "The build directory")
 	cmd.MarkFlagRequired("build-dir") // nolint:errcheck
+
+	cmd.Flags().StringVar(&application, "app", "", "Override the application to release to")
 
 	return cmd
 }
