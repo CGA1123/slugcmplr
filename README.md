@@ -80,6 +80,11 @@ slug.
 It uses the `BUILD-DIR/release.json` file in order to fetch metadata in order
 to create this release.
 
+You can optionally pass `--app [APPLICATION]` to target an application that is
+different from the one you build from. This will work as long as the
+applications are in the same Heroku team. (This is becuase the slug must be
+accessible to the application).
+
 
 ## Authentication
 
