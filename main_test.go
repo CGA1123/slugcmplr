@@ -41,8 +41,7 @@ func test_Prepare(t *testing.T) {
 			prepareCmd := Cmd()
 			prepareCmd.SetArgs([]string{
 				"prepare", appName,
-				"--build-dir", buildDir,
-				"--verbose"})
+				"--build-dir", buildDir})
 			ok(t, prepareCmd.Execute())
 
 			// expect meta.json to be created properly
@@ -153,8 +152,7 @@ func endToEndSmoke(t *testing.T, fixture string) {
 		prepareCmd.SetArgs([]string{
 			"prepare", app,
 			"--build-dir", buildDir,
-			"--source-dir", src,
-			"--verbose"})
+			"--source-dir", src})
 		ok(t, prepareCmd.Execute())
 
 		// Compile
@@ -162,16 +160,14 @@ func endToEndSmoke(t *testing.T, fixture string) {
 		compileCmd.SetArgs([]string{
 			"compile",
 			"--build-dir", buildDir,
-			"--image", "ghcr.io/cga1123/slugcmplr:testing",
-			"--verbose"})
+			"--image", "ghcr.io/cga1123/slugcmplr:testing"})
 		ok(t, compileCmd.Execute())
 
 		// Release
 		releaseCmd := Cmd()
 		releaseCmd.SetArgs([]string{
 			"release",
-			"--build-dir", buildDir,
-			"--verbose"})
+			"--build-dir", buildDir})
 		ok(t, releaseCmd.Execute())
 	})
 }
