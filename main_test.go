@@ -162,7 +162,7 @@ func endToEndSmoke(t *testing.T, fixture string) {
 		compileCmd.SetArgs([]string{
 			"compile",
 			"--build-dir", buildDir,
-			"--image", "ghcr.io/cga1123/slugcmplr:testing",
+			"--image", `"ghcr.io/cga1123/slugcmplr:testing"`,
 			"--verbose"})
 		ok(t, compileCmd.Execute())
 

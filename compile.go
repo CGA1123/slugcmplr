@@ -39,12 +39,16 @@ func bootstrapDocker(ctx context.Context, buildDir, cacheDir, netrc, image strin
 		return fmt.Errorf("failed to decode metadata: %w", err)
 	}
 
+	imageName := fmt.Sprintf(image, c.Stack)
+
+	log(os.Stdout, "Using: %v", imageName)
+
 	dockerRun := exec.CommandContext(ctx, "docker", "run",
 		"--volume", fmt.Sprintf(`"%v:/tmp/build"`, buildDir),
 		"--volume", fmt.Sprintf(`"%v:/tmp/cache"`, cacheDir),
 		"--volume", fmt.Sprintf(`"%v:/tmp/netrc"`, netrc),
 		"--env", `"NETRC=/tmp/netrc"`,
-		fmt.Sprintf(image, c.Stack),
+		imageName,
 	) // #nosec G204
 
 	dockerRun.Stderr, dockerRun.Stdout = os.Stderr, os.Stdout
