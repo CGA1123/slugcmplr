@@ -1,6 +1,10 @@
 # slugcmplr
 
-TODO
+`slugcmplr` allows you to compile Heroku compatible slugs using official and
+custom buildpacks, in the same manner as the [Heroku Slug Compiler](https://devcenter.heroku.com/articles/slug-compiler)
+
+This can be useful to have more control over the build process for your
+applications and to allow for detaching building and release your images.
 
 ## Install
 
@@ -14,7 +18,65 @@ available attached to tagged [releases].
 
 ## Info
 
-TODO
+`slugcmplr` has 3 steps/sub-commands:
+
+### `prepare [APPLICATION] --build-dir [BUILD-DIR] --source-dir [SOURCE-DIR]`
+
+In the prepare step, `slugcmplr` will fetch the metadata required to compile
+your application. It will copy your project `SOURCE-DIR` into `BUILD-DIR/app`
+respecting your `.slugcleanup` file.
+
+It will fetch the buildpacks as defined by your Heroku application download and
+decompress them into `BUILD-DIR/buildpacks`.
+
+It will fetch the config vars as defined by your Heroku application and put
+them into the `BUILD-DIR/environment` directory.
+
+Finally, `prepare` writes metadata (such as the application name, stack,
+buildpack order, source version) to the `BUILD-DIR/compile.json` file to allow
+the `compile` step to bootstrap itself.
+
+### `compile --build-dir [BUILD-DIR] --cache-dir [CACHE-DIR]`
+
+In the compile step, `slugcmplr` executes your buildpacks in the specified
+order, outputs your Heroku slug, and uploads it to Heroku for future release.
+
+Precisely, `compile` will bootstrap itself into a build container, mounting the
+following directories into the container:
+
+- `BUILD-DIR` to `/tmp/build`
+- `CACHE-DIR` to `/tmp/cache`
+- `${HOME}/.netrc` or the value of `${NETRC}` to `/tmp/netrc`
+
+`slugcmplr` will select the correct base image based on the stack defined by
+your application, currently one of:
+
+- `heroku/heroku:20-build` for the `heroku-20` stack
+- `heroku/heroku:18-build` for the `heroku-18` stack
+
+
+`compile` will output the slug for your application to `BUILD-DIR/app.tgz`
+
+`compile` will output metadata about the compilation to
+`BUILD-DIR/release.tgz`, this contains information such as the slug ID as
+uploaded to Heroku.
+
+You can optionally pass `--local` to run the compile steps locally, outside of
+any docker image.
+
+You can optionally pass `--image [IMAGE]` to use a custom docker image,
+`slugcmplr` assumes that a version of itself is available at `bin/slugcmplr` in
+the image. You can use the `%stack%` pattern in `IMAGE` to have the stack (e.g.
+`heroku-20`) a part of the image name.
+
+
+### `release --build-dir [BUILD-DIR]`
+
+In the release step, `slugcmplr` triggers a release of your previously compiled
+slug.
+
+It uses the `BUILD-DIR/release.json` file in order to fetch metadata in order
+to create this release.
 
 
 ## Authentication
