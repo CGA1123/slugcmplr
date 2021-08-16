@@ -72,7 +72,13 @@ func commitDir(dir string) (string, error) {
 
 func netrcClient() (*heroku.Service, error) {
 	step(os.Stdout, "Building client from .netrc...")
-	rcfile, err := loadNetrc()
+	netrcpath, err := netrcPath()
+	if err != nil {
+		wrn(os.Stderr, "error finding .netrc file path: %v", err)
+		return nil, err
+	}
+
+	rcfile, err := netrc.ParseFile(netrcpath)
 	if err != nil {
 		wrn(os.Stderr, "error creating client from .netrc: %v", err)
 		return nil, err
@@ -104,17 +110,17 @@ func Cmd() *cobra.Command {
 	return rootCmd
 }
 
-func loadNetrc() (*netrc.Netrc, error) {
+func netrcPath() (string, error) {
 	if fromEnv := os.Getenv("NETRC"); fromEnv != "" {
-		return netrc.ParseFile(fromEnv)
+		return fromEnv, nil
 	}
 
 	u, err := user.Current()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return netrc.ParseFile(filepath.Join(u.HomeDir, ".netrc"))
+	return filepath.Join(u.HomeDir, ".netrc"), nil
 }
 
 type tarball struct {

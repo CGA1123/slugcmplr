@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -19,6 +20,34 @@ type Compile struct {
 	Stack         string                 `json:"stack"`
 	SourceVersion string                 `json:"source_version"`
 	Buildpacks    []*buildpack.Buildpack `json:"buildpacks"`
+}
+
+func bootstrapDocker(ctx context.Context, buildDir, cacheDir, netrc string) error {
+	step(os.Stdout, "Reading metadata")
+	log(os.Stdout, "From: %v", filepath.Join(buildDir, "meta.json"))
+
+	m, err := os.Open(filepath.Join(buildDir, "meta.json"))
+	if err != nil {
+		return fmt.Errorf("failed to read metadata: %w", err)
+	}
+	defer m.Close()
+
+	c := &Compile{}
+	if err := json.NewDecoder(m).Decode(c); err != nil {
+		return fmt.Errorf("failed to decode metadata: %w", err)
+	}
+
+	dockerRun := exec.CommandContext(ctx, "docker", "run",
+		"--volume", fmt.Sprintf("%v:/tmp/build", buildDir),
+		"--volume", fmt.Sprintf("%v:/tmp/cache", cacheDir),
+		"--volume", fmt.Sprintf("%v:/tmp/netrc", netrc),
+		"--env", "NETRC=/tmp/netrc",
+		fmt.Sprintf("ghcr.io/cga1123/slugcmplr:%v", c.Stack),
+	)
+
+	dockerRun.Stderr, dockerRun.Stdout = os.Stderr, os.Stdout
+
+	return dockerRun.Run()
 }
 
 func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) error {
@@ -134,17 +163,13 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 
 func compileCmd() *cobra.Command {
 	var cacheDir, buildDir string
+	var local bool
 
 	cmd := &cobra.Command{
 		Use:   "compile",
 		Short: "compile the target applications",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := netrcClient()
-			if err != nil {
-				return err
-			}
-
 			if cacheDir == "" {
 				cd, err := os.MkdirTemp("", "")
 				if err != nil {
@@ -157,13 +182,28 @@ func compileCmd() *cobra.Command {
 			dbg(os.Stdout, "buildDir: %v", buildDir)
 			dbg(os.Stdout, "cacheDir: %v", cacheDir)
 
-			return compile(cmd.Context(), client, buildDir, cacheDir)
+			if local {
+				client, err := netrcClient()
+				if err != nil {
+					return err
+				}
+
+				return compile(cmd.Context(), client, buildDir, cacheDir)
+			} else {
+				netrcpath, err := netrcPath()
+				if err != nil {
+					return fmt.Errorf("failed to find netrc path: %w", err)
+				}
+
+				return bootstrapDocker(cmd.Context(), buildDir, cacheDir, netrcpath)
+			}
 		},
 	}
 
 	cmd.Flags().StringVar(&buildDir, "build-dir", "", "The build directory")
 	cmd.MarkFlagRequired("build-dir") // nolint:errcheck
 
+	cmd.Flags().BoolVar(&local, "local", false, "Run compilation locally")
 	cmd.Flags().StringVar(&cacheDir, "cache-dir", "", "The cache directory")
 
 	return cmd
