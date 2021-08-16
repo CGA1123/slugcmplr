@@ -170,8 +170,7 @@ func ParseSource(url string) (Source, error) {
 	}
 
 	// TODO: support non github .git URLs (clone)
-	// TODO: fallback to targz buildpack source if it isn't a git source
-	return nil, fmt.Errorf("failed to parse buildpack URL: %v", url)
+	return &targzSource{RawURL: url, URL: url, github: false}, nil
 }
 
 func sum256(s string) string {
