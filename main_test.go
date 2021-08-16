@@ -20,9 +20,9 @@ func Test_Suite(t *testing.T) {
 
 	// nolint: paralleltest
 	t.Run("End to end tests", func(t *testing.T) {
-		// t.Run("Test_Prepare", test_Prepare)
-		// t.Run("Test_Go", test_Go)
-		// t.Run("Test_Rails", test_Rails)
+		t.Run("Test_Prepare", test_Prepare)
+		t.Run("Test_Go", test_Go)
+		t.Run("Test_Rails", test_Rails)
 		t.Run("Test_Binary", test_Binary)
 	})
 }
