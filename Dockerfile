@@ -12,4 +12,4 @@ FROM heroku/heroku:${STACK}-build
 
 COPY --from=builder /app/bin/slugcmplr /usr/bin/slugcmplr
 
-CMD /usr/bin/slugcmplr compile --build-dir /tmp/build --cache-dir /tmp/cache --local
+ENTRYPOINT ["/usr/bin/slugcmplr"]
