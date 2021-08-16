@@ -1,14 +1,20 @@
 package main
 
 import (
+	"archive/tar"
 	"bufio"
+	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/bgentry/go-netrc/netrc"
@@ -19,8 +25,7 @@ import (
 )
 
 var (
-	verbose      bool
-	compileAppID string
+	verbose bool
 )
 
 func main() {
@@ -28,6 +33,21 @@ func main() {
 	if err := cmd.ExecuteContext(context.Background()); err != nil {
 		os.Exit(1)
 	}
+}
+
+func Cmd() *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "slugcmplr",
+		Short: "slugcmplr helps you detach building and releasing Heroku applications",
+	}
+
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
+
+	rootCmd.AddCommand(prepareCmd())
+	rootCmd.AddCommand(compileCmd())
+	rootCmd.AddCommand(releaseCmd())
+
+	return rootCmd
 }
 
 func step(w io.Writer, format string, a ...interface{}) {
@@ -48,9 +68,9 @@ func dbg(w io.Writer, format string, a ...interface{}) {
 	}
 }
 
-func commit() (string, error) {
+func commitDir(dir string) (string, error) {
 	step(os.Stdout, "Fetching HEAD commit...")
-	r, err := git.PlainOpenWithOptions(".", &git.PlainOpenOptions{DetectDotGit: true})
+	r, err := git.PlainOpenWithOptions(dir, &git.PlainOpenOptions{DetectDotGit: true})
 	if err != nil {
 		wrn(os.Stderr, "error detecting HEAD commit: %v", err)
 		return "", err
@@ -65,6 +85,176 @@ func commit() (string, error) {
 	return hsh.String(), nil
 }
 
+func netrcClient() (*heroku.Service, error) {
+	step(os.Stdout, "Building client from .netrc...")
+	netrcpath, err := netrcPath()
+	if err != nil {
+		wrn(os.Stderr, "error finding .netrc file path: %v", err)
+		return nil, err
+	}
+
+	rcfile, err := netrc.ParseFile(netrcpath)
+	if err != nil {
+		wrn(os.Stderr, "error creating client from .netrc: %v", err)
+		return nil, err
+	}
+
+	machine := rcfile.FindMachine("api.heroku.com")
+	if machine == nil {
+		return nil, fmt.Errorf("no .netrc entry for api.heroku.com found")
+	}
+
+	return heroku.NewService(&http.Client{
+		Transport: &heroku.Transport{
+			Username: machine.Login,
+			Password: machine.Password}}), nil
+}
+
+func netrcPath() (string, error) {
+	if fromEnv := os.Getenv("NETRC"); fromEnv != "" {
+		return fromEnv, nil
+	}
+
+	u, err := user.Current()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(u.HomeDir, ".netrc"), nil
+}
+
+type tarball struct {
+	path     string
+	checksum string
+}
+
+// targz will walk srcDirPath recursively and write the correspoding G-Zipped Tar
+// Archive to the given writers.
+//
+// TODO: symlinks?
+func targz(srcDirPath, dstDirPath string) (*tarball, error) {
+	f, err := os.Create(dstDirPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tarfile: %w", err)
+	}
+	defer f.Close()
+
+	sha := sha256.New()
+	mw := io.MultiWriter(sha, f)
+
+	gzw := gzip.NewWriter(mw)
+	defer gzw.Close()
+
+	tw := tar.NewWriter(gzw)
+	defer tw.Close()
+
+	walk := func(file string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		info, err := d.Info()
+		if err != nil {
+			return fmt.Errorf("file moved or removed while building tarball: %w", err)
+		}
+
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+
+		header, err := tar.FileInfoHeader(info, d.Name())
+		if err != nil {
+			return err
+		}
+
+		header.Name = strings.TrimPrefix(strings.TrimPrefix(file, srcDirPath), string(filepath.Separator))
+
+		// Heroku requires GNU Tar format (at least for slugs, maybe not for build sources?)
+		//
+		// https://devcenter.heroku.com/articles/platform-api-deploying-slugs#create-slug-archive
+		header.Format = tar.FormatGNU
+
+		if err := tw.WriteHeader(header); err != nil {
+			return err
+		}
+
+		f, err := os.Open(file)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		if _, err := io.Copy(tw, f); err != nil {
+			return err
+		}
+
+		return f.Close()
+	}
+
+	if err := filepath.WalkDir(srcDirPath, walk); err != nil {
+		return nil, fmt.Errorf("error walking directory: %w", err)
+	}
+
+	// explicitly close to ensure we flush to archive and sha, make sure we get
+	// a correct checksum.
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
+
+	if err := gzw.Close(); err != nil {
+		return nil, err
+	}
+
+	if err := f.Close(); err != nil {
+		return nil, err
+	}
+
+	return &tarball{
+		path:     dstDirPath,
+		checksum: fmt.Sprintf("SHA256:%v", hex.EncodeToString(sha.Sum(nil))),
+	}, nil
+}
+
+func upload(ctx context.Context, method, url, path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, url, f)
+	if err != nil {
+		return err
+	}
+
+	req.ContentLength = fi.Size()
+
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+
+	var body string
+	defer response.Body.Close()
+
+	b, err := io.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+
+	body = string(b)
+
+	if response.StatusCode > 399 {
+		return fmt.Errorf("HTTP %v: %v", response.Status, body)
+	}
+
+	return nil
+}
+
 func outputStream(out io.Writer, stream string) error {
 	return outputStreamAttempt(out, stream, 0)
 }
@@ -74,7 +264,7 @@ func outputStreamAttempt(out io.Writer, stream string, attempt int) error {
 		return fmt.Errorf("failed to fetch outputStream after 5 attempts")
 	}
 
-	resp, err := http.Get(stream)
+	resp, err := http.Get(stream) // #nosec G107
 	if err != nil {
 		return err
 	}
@@ -97,111 +287,4 @@ func outputStreamAttempt(out io.Writer, stream string, attempt int) error {
 	}
 
 	return scn.Err()
-}
-
-func netrcClient() (*heroku.Service, error) {
-	step(os.Stdout, "Building client from .netrc...")
-	rcfile, err := loadNetrc()
-	if err != nil {
-		wrn(os.Stderr, "error creating client from .netrc: %v", err)
-		return nil, err
-	}
-
-	machine := rcfile.FindMachine("api.heroku.com")
-	if machine == nil {
-		return nil, fmt.Errorf("no .netrc entry for api.heroku.com found")
-	}
-
-	return heroku.NewService(&http.Client{
-		Transport: &heroku.Transport{
-			Username: machine.Login,
-			Password: machine.Password}}), nil
-}
-
-func Cmd() *cobra.Command {
-	rootCmd := &cobra.Command{
-		Use:   "slugcmplr",
-		Short: "slugcmplr helps you detach building and releasing Heroku applications",
-	}
-
-	buildCmd := &cobra.Command{
-		Use:   "build [application]",
-		Short: "Triggers a build of your application.",
-		Long: `The build command will create a clone of your target application and
-create a standard Heroku build. The build will _not_ run the release task in
-your Procfile if it is defined.`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			production := args[0]
-			compile := compileAppID
-
-			client, err := netrcClient()
-			if err != nil {
-				return err
-			}
-
-			commit, err := commit()
-			if err != nil {
-				return err
-			}
-
-			return build(cmd.Context(), production, compile, commit, client)
-		},
-	}
-
-	releaseCmd := &cobra.Command{
-		Use:   "release [target]",
-		Short: "Promotes a release from your compiler app to your target app.",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			production := args[0]
-			compile := compileAppID
-
-			client, err := netrcClient()
-			if err != nil {
-				return err
-			}
-
-			commit, err := commit()
-			if err != nil {
-				return err
-			}
-
-			return release(cmd.Context(), production, compile, commit, client)
-		},
-	}
-
-	buildCmd.Flags().StringVar(&compileAppID, "compiler", "",
-		"The Heroku application to compile on (required)")
-	buildCmd.MarkFlagRequired("compiler")
-
-	releaseCmd.Flags().StringVar(&compileAppID, "compiler", "", "The Heroku application compiled on (required)")
-	releaseCmd.MarkFlagRequired("compiler")
-	rootCmd.AddCommand(releaseCmd)
-
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
-	rootCmd.AddCommand(buildCmd)
-
-	return rootCmd
-}
-
-func loadNetrc() (*netrc.Netrc, error) {
-	if fromEnv := os.Getenv("NETRC"); fromEnv != "" {
-		return netrc.ParseFile(fromEnv)
-	}
-
-	u, err := user.Current()
-	if err != nil {
-		return nil, err
-	}
-
-	return netrc.ParseFile(filepath.Join(u.HomeDir, ".netrc"))
-}
-
-func ptrStr(ptr *string) string {
-	if ptr == nil {
-		return "<NIL>"
-	}
-
-	return *ptr
 }

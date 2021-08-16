@@ -1,0 +1,17 @@
+linters:
+  enable:
+    - misspell
+    - bodyclose
+    - deadcode
+    - gofmt
+    - goimports
+    - gosimple
+    - dogsled
+    - durationcheck
+    - goconst
+    - godot
+    - gosec
+    - importas
+    - paralleltest
+    - whitespace
+    - staticcheck

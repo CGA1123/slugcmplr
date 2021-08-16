@@ -2,94 +2,105 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
+	"path/filepath"
 	"time"
 
 	heroku "github.com/heroku/heroku-go/v5"
+	"github.com/spf13/cobra"
 )
 
-func release(ctx context.Context, production, compile, commit string, client *heroku.Service) error {
-	step(os.Stdout, "Releasing %v from %v to %v", commit[:7], compile, production)
-	log(os.Stdout, "Finding correct release...")
-	releases, err := client.ReleaseList(ctx, compile, &heroku.ListRange{
-		Descending: true, Field: "version"})
+type Release struct {
+	Application string `json:"application"`
+	Slug        string `json:"slug"`
+	Commit      string `json:"commit"`
+}
+
+func release(ctx context.Context, h *heroku.Service, buildDir, application string) error {
+	step(os.Stdout, "Reading release")
+	log(os.Stdout, "From: %v", filepath.Join(buildDir, "release.json"))
+
+	rf, err := os.Open(filepath.Join(buildDir, "release.json"))
 	if err != nil {
-		wrn(os.Stderr, "error fetching releases from %v: %v", compile, err)
-
-		return err
+		return fmt.Errorf("failed to read release data: %w", err)
 	}
-	description := fmt.Sprintf("Deploy %s", commit[:7])
-	var compileRelease *heroku.Release
-	for _, release := range releases {
-		dbg(os.Stdout, "release ID: %v, release Desc: %v", release.ID, release.Description)
+	defer rf.Close()
 
-		if strings.HasPrefix(release.Description, description) {
-			compileRelease = &release
-			break
-		}
-	}
-	if compileRelease == nil {
-		wrn(os.Stderr, "failed to find a release for %v on %v", commit, compile)
-
-		return fmt.Errorf("could not find release on compile app for %v", commit)
+	r := &Release{}
+	if err := json.NewDecoder(rf).Decode(r); err != nil {
+		return fmt.Errorf("failed to decode release data: %w", err)
 	}
 
-	log(os.Stdout, "Found release %v (v%v)", compileRelease.ID, compileRelease.Version)
+	if application == "" {
+		application = r.Application
+	}
 
-	step(os.Stdout, "Releasing slug %v to %v", compileRelease.Slug.ID, production)
-	prodRelease, err := client.ReleaseCreate(ctx, production, heroku.ReleaseCreateOpts{
-		Slug: compileRelease.Slug.ID, Description: heroku.String(commit),
+	log(os.Stdout, "application: %v", application)
+	log(os.Stdout, "slug: %v", r.Slug)
+
+	step(os.Stdout, "Releasing slug %v to %v", r.Slug, r.Application)
+
+	release, err := h.ReleaseCreate(ctx, application, heroku.ReleaseCreateOpts{
+		Slug:        r.Slug,
+		Description: heroku.String(fmt.Sprintf("Deployed %v", r.Commit[:8])),
 	})
 	if err != nil {
-		wrn(os.Stdout, "error promoting slug: %v", err)
-
-		return err
+		return fmt.Errorf("error creating release: %w", err)
 	}
 
-	if prodRelease.OutputStreamURL != nil {
-		if err := outputStream(os.Stdout, *prodRelease.OutputStreamURL); err != nil {
-			wrn(os.Stderr, "error streaming release logs: %v", err)
+	if release.OutputStreamURL != nil {
+		if err := outputStream(os.Stdout, *release.OutputStreamURL); err != nil {
+			return fmt.Errorf("failed to stream output: %w", err)
 		}
-	} else {
-		dbg(os.Stdout, "No output stream for release %v", prodRelease.ID)
 	}
-	log(os.Stdout, "Done.")
 
-	step(os.Stdout, "Verifying release status...")
+	for i := 0; i < 24; i++ {
+		log(os.Stdout, "checking release status... (attempt %v)", i+1)
 
-	for i := 0; i < 5; i++ {
-		release, err := client.ReleaseInfo(ctx, production, prodRelease.ID)
+		info, err := h.ReleaseInfo(ctx, r.Application, release.ID)
 		if err != nil {
-			wrn(os.Stderr, "error checking release state: %v", err)
-
-			return err
+			return fmt.Errorf("failed to fetch release info: %w", err)
 		}
 
-		switch status := release.Status; status {
-		case "pending":
-			log(os.Stderr, "release is still pending...")
-			time.Sleep(5 * time.Second)
+		log(os.Stdout, "status: %v", info.Status)
+
+		switch info.Status {
 		case "failed":
-			wrn(os.Stderr, "release failed, try again?")
-
-			return fmt.Errorf("release failed, try again?")
+			return fmt.Errorf("release failed")
 		case "succeeded":
-			log(os.Stdout, "release succeeded")
-
 			return nil
-		default:
-			wrn(os.Stderr, "unknown release status: %v", status)
-
-			return fmt.Errorf("unknown release status returned by Heroku: %v", status)
+		case "pending":
+			continue
 		}
 
+		time.Sleep(5 * time.Second)
 	}
 
-	wrn(os.Stderr, "release is still pending, aborting checks.")
-	wrn(os.Stderr, "this may be due to Heroku being unable or slow to provision release dynos")
-	wrn(os.Stderr, "or a very slow release task, check the Heroku logs or Heroku status pages")
+	return fmt.Errorf("release still pending after multiple attempts")
+}
 
-	return fmt.Errorf("release is still pending after a while")
+func releaseCmd() *cobra.Command {
+	var buildDir, application string
+	cmd := &cobra.Command{
+		Use:   "release",
+		Short: "release a slug",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := netrcClient()
+			if err != nil {
+				return err
+			}
+
+			return release(cmd.Context(), client, buildDir, application)
+		},
+	}
+
+	cmd.Flags().StringVar(&buildDir, "build-dir", "", "The build directory")
+	cmd.MarkFlagRequired("build-dir") // nolint:errcheck
+
+	cmd.Flags().StringVar(&application, "app", "", "Override the application to release to")
+
+	return cmd
 }
