@@ -31,6 +31,7 @@ jobs:
         context: .
         push: false
         tags: ghcr.io/cga1123/slugcmplr:testing
+        load: true
         build-args: STACK=20
     - run: go get -v -d ./...
     - run: go test -v -race -parallel=4 ./...
