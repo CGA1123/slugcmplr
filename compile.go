@@ -201,14 +201,14 @@ func compileCmd() *cobra.Command {
 				}
 
 				return compile(cmd.Context(), client, buildDir, cacheDir)
-			} else {
-				netrcpath, err := netrcPath()
-				if err != nil {
-					return fmt.Errorf("failed to find netrc path: %w", err)
-				}
-
-				return bootstrapDocker(cmd.Context(), buildDir, cacheDir, netrcpath, image)
 			}
+
+			netrcpath, err := netrcPath()
+			if err != nil {
+				return fmt.Errorf("failed to find netrc path: %w", err)
+			}
+
+			return bootstrapDocker(cmd.Context(), buildDir, cacheDir, netrcpath, image)
 		},
 	}
 

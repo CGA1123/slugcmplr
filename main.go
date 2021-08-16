@@ -276,9 +276,9 @@ func outputStreamAttempt(out io.Writer, stream string, attempt int) error {
 			time.Sleep(2 * time.Second)
 
 			return outputStreamAttempt(out, stream, attempt+1)
-		} else {
-			return fmt.Errorf("output stream returned HTTP status: %v", resp.Status)
 		}
+
+		return fmt.Errorf("output stream returned HTTP status: %v", resp.Status)
 	}
 
 	scn := bufio.NewScanner(resp.Body)

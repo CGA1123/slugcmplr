@@ -20,14 +20,14 @@ func Test_Suite(t *testing.T) {
 
 	// nolint: paralleltest
 	t.Run("End to end tests", func(t *testing.T) {
-		t.Run("Test_Prepare", test_Prepare)
-		t.Run("Test_Go", test_Go)
-		t.Run("Test_Rails", test_Rails)
-		t.Run("Test_Binary", test_Binary)
+		t.Run("TestPrepare", testPrepare)
+		t.Run("TestGo", testGo)
+		t.Run("TestRails", testRails)
+		t.Run("TestBinary", testBinary)
 	})
 }
 
-func test_Prepare(t *testing.T) {
+func testPrepare(t *testing.T) {
 	t.Parallel()
 
 	withHarness(t, "CGA1123/slugcmplr-fixture-binary",
@@ -118,19 +118,19 @@ func test_Prepare(t *testing.T) {
 		})
 }
 
-func test_Binary(t *testing.T) {
+func testBinary(t *testing.T) {
 	t.Parallel()
 
 	endToEndSmoke(t, "CGA1123/slugcmplr-fixture-binary")
 }
 
-func test_Go(t *testing.T) {
+func testGo(t *testing.T) {
 	t.Parallel()
 
 	endToEndSmoke(t, "CGA1123/slugcmplr-fixture-go")
 }
 
-func test_Rails(t *testing.T) {
+func testRails(t *testing.T) {
 	t.Parallel()
 
 	endToEndSmoke(t, "CGA1123/slugcmplr-fixture-rails")
