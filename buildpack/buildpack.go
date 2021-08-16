@@ -27,11 +27,16 @@ type Buildpack struct {
 	Directory string `json:"directory"`
 }
 
+func environ(b *Build) []string {
+	return append(os.Environ(), "STACK="+b.Stack, "SOURCE_VERSION="+b.SourceVersion)
+}
+
 func (b *Buildpack) Detect(ctx context.Context, build *Build) (string, bool, error) {
 	detect := filepath.Join(build.BuildDir, BuildpacksDir, b.Directory, "bin", "detect")
 	stdout := &strings.Builder{}
 
 	detectCmd := exec.CommandContext(ctx, detect, filepath.Join(build.BuildDir, AppDir)) // #nosec G204
+	detectCmd.Env = environ(build)
 	detectCmd.Stderr, detectCmd.Stdout = os.Stderr, stdout
 
 	if err := detectCmd.Run(); err != nil {
@@ -70,6 +75,7 @@ func (b *Buildpack) Compile(ctx context.Context, exports []*Buildpack, build *Bu
 	commandParts = append(commandParts, fmt.Sprintf("'%v' '%v' '%v' '%v'", compile, appDir, build.CacheDir, envDir))
 
 	compileCmd := exec.CommandContext(ctx, "bash", "-c", strings.Join(commandParts, ";")) // #nosec G204
+	compileCmd.Env = environ(build)
 	compileCmd.Stderr, compileCmd.Stdout = os.Stderr, os.Stdout
 	if err := compileCmd.Run(); err != nil {
 		return fmt.Errorf("failed to compile: %w", err)
