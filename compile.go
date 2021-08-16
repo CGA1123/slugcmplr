@@ -44,12 +44,14 @@ func bootstrapDocker(ctx context.Context, buildDir, cacheDir, netrc, image strin
 	log(os.Stdout, "Using: %v", imageName)
 
 	dockerRun := exec.CommandContext(ctx, "docker", "run",
-		"--volume", fmt.Sprintf(`"%v:/tmp/build"`, buildDir),
-		"--volume", fmt.Sprintf(`"%v:/tmp/cache"`, cacheDir),
-		"--volume", fmt.Sprintf(`"%v:/tmp/netrc"`, netrc),
-		"--env", `"NETRC=/tmp/netrc"`,
+		"--volume", fmt.Sprintf("%v:/tmp/build", buildDir),
+		"--volume", fmt.Sprintf("%v:/tmp/cache", cacheDir),
+		"--volume", fmt.Sprintf("%v:/tmp/netrc", netrc),
+		"--env", "NETRC=/tmp/netrc",
 		imageName,
 	) // #nosec G204
+
+	dbg(os.Stdout, "dockerRun: %v", dockerRun.String())
 
 	dockerRun.Stderr, dockerRun.Stdout = os.Stderr, os.Stdout
 
