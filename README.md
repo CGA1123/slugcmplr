@@ -63,6 +63,9 @@ your application, currently one of:
 `BUILD-DIR/release.tgz`, this contains information such as the slug ID as
 uploaded to Heroku.
 
+The `CACHE-DIR` will be used by the buildpacks as their cache argument to speed
+up builds in the future, as per the [Buildpack API](https://devcenter.heroku.com/articles/buildpack-api)
+
 You can optionally pass `--local` to run the compile steps locally, outside of
 any docker image.
 
