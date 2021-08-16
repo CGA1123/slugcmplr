@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const DefaultImage = "ghcr.io/cga1123/slugcmplr:%v"
+const DefaultImage = "ghcr.io/cga1123/slugcmplr:%stack%"
 
 type Compile struct {
 	Application   string                 `json:"application"`
@@ -39,7 +39,7 @@ func bootstrapDocker(ctx context.Context, buildDir, cacheDir, netrc, image strin
 		return fmt.Errorf("failed to decode metadata: %w", err)
 	}
 
-	imageName := fmt.Sprintf(image, c.Stack)
+	imageName := strings.ReplaceAll(image, "%stack%", c.Stack)
 
 	log(os.Stdout, "Using: %v", imageName)
 
