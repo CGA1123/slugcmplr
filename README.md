@@ -126,6 +126,12 @@ SLUGCMPLR_ACC=true \
   go test -v
 ```
 
+Fixture application are hosted in separate repositories which will be cloned
+and created by using the `withHarness` function. Fixture repositories are
+expected to contain a `app.json` file which describes the Heroku applications.
+
+See [app.json Schema](https://devcenter.heroku.com/articles/app-json-schema)
+
 ---
 
 For more background on this you might find [this] Medium article helpful.
