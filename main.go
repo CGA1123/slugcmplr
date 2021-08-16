@@ -35,6 +35,21 @@ func main() {
 	}
 }
 
+func Cmd() *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "slugcmplr",
+		Short: "slugcmplr helps you detach building and releasing Heroku applications",
+	}
+
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
+
+	rootCmd.AddCommand(prepareCmd())
+	rootCmd.AddCommand(compileCmd())
+	rootCmd.AddCommand(releaseCmd())
+
+	return rootCmd
+}
+
 func step(w io.Writer, format string, a ...interface{}) {
 	fmt.Fprintf(w, "-----> %s\n", fmt.Sprintf(format, a...))
 }
@@ -93,21 +108,6 @@ func netrcClient() (*heroku.Service, error) {
 		Transport: &heroku.Transport{
 			Username: machine.Login,
 			Password: machine.Password}}), nil
-}
-
-func Cmd() *cobra.Command {
-	rootCmd := &cobra.Command{
-		Use:   "slugcmplr",
-		Short: "slugcmplr helps you detach building and releasing Heroku applications",
-	}
-
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
-
-	rootCmd.AddCommand(prepareCmd())
-	rootCmd.AddCommand(compileCmd())
-	rootCmd.AddCommand(releaseCmd())
-
-	return rootCmd
 }
 
 func netrcPath() (string, error) {

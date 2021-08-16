@@ -33,7 +33,7 @@ func prepare(ctx context.Context, h *heroku.Service, p *Prepare) error {
 	buildpacksDir := filepath.Join(p.BuildDir, buildpack.BuildpacksDir)
 	appDir := filepath.Join(p.BuildDir, buildpack.AppDir)
 
-	// dump metadata
+	// metadata
 	commit, err := commitDir(p.SourceDir)
 	if err != nil {
 		return fmt.Errorf("failed to resolve HEAD commit: %w", err)
