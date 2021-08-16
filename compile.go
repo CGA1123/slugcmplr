@@ -40,10 +40,10 @@ func bootstrapDocker(ctx context.Context, buildDir, cacheDir, netrc, image strin
 	}
 
 	dockerRun := exec.CommandContext(ctx, "docker", "run",
-		"--volume", fmt.Sprintf("%v:/tmp/build", buildDir),
-		"--volume", fmt.Sprintf("%v:/tmp/cache", cacheDir),
-		"--volume", fmt.Sprintf("%v:/tmp/netrc", netrc),
-		"--env", "NETRC=/tmp/netrc",
+		"--volume", fmt.Sprintf(`"%v:/tmp/build"`, buildDir),
+		"--volume", fmt.Sprintf(`"%v:/tmp/cache"`, cacheDir),
+		"--volume", fmt.Sprintf(`"%v:/tmp/netrc"`, netrc),
+		"--env", `"NETRC=/tmp/netrc"`,
 		fmt.Sprintf(image, c.Stack),
 	) // #nosec G204
 
