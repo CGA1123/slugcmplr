@@ -217,7 +217,7 @@ func compileCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&local, "local", false, "Run compilation locally")
 	cmd.Flags().StringVar(&cacheDir, "cache-dir", "", "The cache directory")
-	cmd.Flags().StringVar(&image, "image", DefaultImage, "Override docker image to use, include %v in order to substitute the stack name")
+	cmd.Flags().StringVar(&image, "image", DefaultImage, "Override docker image to use, include %stack% in order to substitute the stack name")
 
 	return cmd
 }
