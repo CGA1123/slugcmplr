@@ -10,6 +10,8 @@ RUN CGO_ENABLED=0 go build -o bin/ .
 
 FROM heroku/heroku:${STACK}-build
 
+LABEL org.opencontainers.image.source="https://github.com/CGA1123/slugcmplr"
+
 COPY --from=builder /app/bin/slugcmplr /usr/bin/slugcmplr
 
 RUN rm -rf /app
