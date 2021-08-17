@@ -1,13 +1,8 @@
-name: goreleaser
-
+name: Release
 on:
   push:
     tags:
       - '*'
-
-permissions:
-  contents: write
-  packages: write
 
 jobs:
   containers:
