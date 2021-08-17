@@ -37,8 +37,10 @@ func main() {
 
 func Cmd() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "slugcmplr",
-		Short: "slugcmplr helps you detach building and releasing Heroku applications",
+		Use:           "slugcmplr",
+		Short:         "slugcmplr helps you detach building and releasing Heroku applications",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")

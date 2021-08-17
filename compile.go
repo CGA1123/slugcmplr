@@ -98,7 +98,10 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 			return err
 		}
 		if !ok {
-			continue
+			step(os.Stdout, "App not compatible with buildpack: %v", bp.URL)
+			wrn(os.Stdout, "Compilation failed")
+
+			return fmt.Errorf("buildpack detection failure")
 		}
 
 		step(os.Stdout, "%v app detected", detected)

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"reflect"
@@ -196,4 +197,32 @@ func withHarness(t *testing.T, fixture string, f func(*testing.T, string, string
 	defer destroyApp(t, h, production)
 
 	f(t, production, dir, h)
+}
+
+func withCapturedStdOut(t *testing.T, f func()) string {
+	t.Helper()
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+
+	actualStdout := os.Stdout
+	os.Stdout = w
+	defer func() {
+		os.Stdout = actualStdout
+	}()
+
+	go func() {
+		f()
+
+		w.Close()
+	}()
+
+	logs, err := io.ReadAll(io.TeeReader(r, actualStdout))
+	if err != nil {
+		t.Fatalf("failed to read all stdout: %v", err)
+	}
+
+	return string(logs)
 }

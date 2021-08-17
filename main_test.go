@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -20,10 +21,11 @@ func Test_Suite(t *testing.T) {
 
 	// nolint: paralleltest
 	t.Run("End to end tests", func(t *testing.T) {
-		t.Run("TestPrepare", testPrepare)
-		t.Run("TestGo", testGo)
-		t.Run("TestRails", testRails)
-		t.Run("TestBinary", testBinary)
+		t.Run("TestDetectFail", testDetectFail)
+		// t.Run("TestPrepare", testPrepare)
+		// t.Run("TestGo", testGo)
+		// t.Run("TestRails", testRails)
+		// t.Run("TestBinary", testBinary)
 	})
 }
 
@@ -116,6 +118,65 @@ func testPrepare(t *testing.T) {
 				}
 			}
 		})
+}
+
+func testDetectFail(t *testing.T) {
+	t.Parallel()
+
+	// TODO: we don't need a full harness here, we can skip the heroku parts and inject the required, stack, config vars, and buildpacks
+	// maybe there's a mising withStubHarness function?
+	withHarness(t, "CGA1123/slugcmplr-fixture-binary", func(t *testing.T, app, src string, h *heroku.Service) {
+		pattn := strings.ReplaceAll("CGA1123/slugcmplr-fixture-binary", "/", "__") + "_"
+		buildDir, err := os.MkdirTemp("", pattn)
+		if err != nil {
+			t.Fatalf("failed to create build director: %v", err)
+		}
+		defer os.RemoveAll(buildDir)
+
+		if _, err := h.BuildpackInstallationUpdate(context.Background(), app, heroku.BuildpackInstallationUpdateOpts{
+			Updates: []struct {
+				Buildpack string `json:"buildpack" url:"buildpack,key"`
+			}{
+				{Buildpack: "https://github.com/CGA1123/heroku-buildpack-bar"},
+				{Buildpack: "https://github.com/CGA1123/heroku-buildpack-detect-fail"},
+				{Buildpack: "https://github.com/CGA1123/heroku-buildpack-foo"},
+			},
+		}); err != nil {
+			t.Fatalf("failed to update buildpacks: %v", err)
+		}
+
+		// Prepare
+		prepareCmd := Cmd()
+		prepareCmd.SetArgs([]string{
+			"prepare", app,
+			"--build-dir", buildDir,
+			"--source-dir", src})
+		ok(t, prepareCmd.Execute())
+
+		var compileErr error
+		logs := withCapturedStdOut(t, func() {
+			// Compile
+			compileCmd := Cmd()
+			compileCmd.SetArgs([]string{
+				"compile",
+				"--build-dir", buildDir,
+				"--image", "ghcr.io/cga1123/slugcmplr:testing"})
+
+			compileErr = compileCmd.Execute()
+		})
+
+		if strings.Contains(logs, "Found BAR exported") {
+			t.Fatalf("expected logs not to contain evidence of running heroku-buildpack-foo")
+		}
+
+		if !strings.Contains(logs, "App not compatible with buildpack: https://github.com/CGA1123/heroku-buildpack-detect-fail") {
+			t.Fatalf("expected logs to mention CGA1123/heroku-buildpack-detect-fail is not compatible")
+		}
+
+		if compileErr == nil {
+			t.Fatalf("expected err to be non-nil")
+		}
+	})
 }
 
 func testBinary(t *testing.T) {
