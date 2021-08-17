@@ -24,7 +24,7 @@ jobs:
       - uses: docker/build-push-action@v2
         with:
           context: .
-          tags: ghcr.io/cga1123/slugcmplr:heroku-${{ matrix.stack }},ghcr.io/cga1123/slugcmplr:heroku-${{ matrix.stack }}-${{ github.sha }}
+          tags: ghcr.io/cga1123/slugcmplr:heroku-${{ matrix.stack }}
           push: true
           build-args: STACK=${{ matrix.stack }}
 
