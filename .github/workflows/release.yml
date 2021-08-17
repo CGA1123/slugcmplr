@@ -24,7 +24,7 @@ jobs:
       - uses: docker/login-action@v1
         with:
           registry: ghcr.io
-          username: CGA1123
+          username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v2
         with:
