@@ -28,7 +28,8 @@ jobs:
             --tag ghcr.io/cga1123/slugcmplr:heroku-${{ matrix.stack }} \
             --tag ghcr.io/cga1123/slugcmplr:heroku-${{ matrix.stack }}-${{ github.sha }} \
             .
-      - run: docker push --all-tags ghcr.io/cga1123/slugcmplr:heroku-${{ matrix.stack }}
+      - run: docker push ghcr.io/cga1123/slugcmplr:heroku-${{ matrix.stack }}
+      - run: docker push ghcr.io/cga1123/slugcmplr:heroku-${{ matrix.stack }}-${{ github.sha }}
 
   goreleaser:
     runs-on: ubuntu-latest
