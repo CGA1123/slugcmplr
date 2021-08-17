@@ -121,7 +121,17 @@ func testPrepare(t *testing.T) {
 }
 
 func testDetectFail(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
+
+	// TODO: can't run this in parallel, because we're messing
+	// with package level vars (os.Stdout) causing data-races across
+	// goroutines!
+	//
+	// Really need to suck it up and inject an io.Writer for stderr/stdout
+	// Can use these in combination?
+	// - https://pkg.go.dev/github.com/spf13/cobra#Command.SetOut
+	// - https://pkg.go.dev/github.com/spf13/cobra#Command.OutOrStdout
+	// - https://pkg.go.dev/github.com/spf13/cobra#Command.OutOrStderr
 
 	// TODO: we don't need a full harness here, we can skip the heroku parts and inject the required, stack, config vars, and buildpacks
 	// maybe there's a mising withStubHarness function?
