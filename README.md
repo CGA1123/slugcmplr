@@ -20,7 +20,7 @@ available attached to tagged [releases].
 
 `slugcmplr` has 3 steps/sub-commands:
 
-### `prepare [APPLICATION] --build-dir [BUILD-DIR] --source-dir [SOURCE-DIR]`
+#### `prepare [APPLICATION] --build-dir [BUILD-DIR] --source-dir [SOURCE-DIR]`
 
 In the prepare step, `slugcmplr` will fetch the metadata required to compile
 your application. It will copy your project `SOURCE-DIR` into `BUILD-DIR/app`
@@ -38,7 +38,7 @@ Finally, `prepare` writes metadata (such as the application name, stack,
 buildpack order, source version) to the `BUILD-DIR/compile.json` file to allow
 the `compile` step to bootstrap itself.
 
-### `compile --build-dir [BUILD-DIR] --cache-dir [CACHE-DIR]`
+#### `compile --build-dir [BUILD-DIR] --cache-dir [CACHE-DIR]`
 
 In the compile step, `slugcmplr` executes your buildpacks in the specified
 order, outputs your Heroku slug, and uploads it to Heroku for future release.
@@ -75,7 +75,7 @@ the image. You can use the `%stack%` pattern in `IMAGE` to have the stack (e.g.
 `heroku-20`) a part of the image name.
 
 
-### `release --build-dir [BUILD-DIR]`
+#### `release --build-dir [BUILD-DIR]`
 
 In the release step, `slugcmplr` triggers a release of your previously compiled
 slug.
