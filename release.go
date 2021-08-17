@@ -56,7 +56,7 @@ func release(ctx context.Context, h *heroku.Service, buildDir, application strin
 		}
 	}
 
-	for i := 0; i < 24; i++ {
+	for i := 0; i < 36; i++ {
 		log(os.Stdout, "checking release status... (attempt %v)", i+1)
 
 		info, err := h.ReleaseInfo(ctx, r.Application, release.ID)
