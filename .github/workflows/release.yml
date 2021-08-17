@@ -23,6 +23,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - run: |
           docker build \
+            --build-arg STACK=${{ matrix.stack }}
             --tag ghcr.io/cga1123/slugcmplr:heroku-${{ matrix.stack }} \
             --tag ghcr.io/cga1123/slugcmplr:heroku-${{ matrix.stack }}-${{ github.sha }} \
             .
