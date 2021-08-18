@@ -199,6 +199,8 @@ func withHarness(t *testing.T, fixture string, f func(*testing.T, string, string
 }
 
 func withStubPrepare(t *testing.T, fixture string, buildpacks []*BuildpackDescription, configVars map[string]string, f func(*testing.T, string, string)) {
+	acceptance(t)
+
 	srcdir, err := os.MkdirTemp("", strings.ReplaceAll(fixture, "/", "__")+"_")
 	if err != nil {
 		t.Fatalf("failed to create tempdir: %v", err)
