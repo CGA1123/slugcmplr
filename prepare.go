@@ -127,7 +127,7 @@ func prepare(ctx context.Context, cmd Outputter, p *Prepare) error {
 	return f.Close()
 }
 
-func prepareCmd() *cobra.Command {
+func prepareCmd(verbose bool) *cobra.Command {
 	var buildDir, srcDir string
 
 	cmd := &cobra.Command{
@@ -136,7 +136,8 @@ func prepareCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			application := args[0]
-			h, err := netrcClient(cmd)
+			output := OutputterFromCmd(cmd, verbose)
+			h, err := netrcClient(output)
 			if err != nil {
 				return err
 			}
@@ -159,9 +160,9 @@ func prepareCmd() *cobra.Command {
 				srcDir = sd
 			}
 
-			dbg(cmd, "buildDir: %v", buildDir)
-			dbg(cmd, "srcDir: %v", srcDir)
-			dbg(cmd, "application: %v", application)
+			dbg(output, "buildDir: %v", buildDir)
+			dbg(output, "srcDir: %v", srcDir)
+			dbg(output, "application: %v", application)
 
 			ctx := cmd.Context()
 
@@ -200,7 +201,7 @@ func prepareCmd() *cobra.Command {
 				}
 			}
 
-			return prepare(ctx, cmd, &Prepare{
+			return prepare(ctx, output, &Prepare{
 				ApplicationName: application,
 				Stack:           app.Stack.Name,
 				ConfigVars:      configVars,

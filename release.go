@@ -81,19 +81,20 @@ func release(ctx context.Context, cmd Outputter, h *heroku.Service, buildDir, ap
 	return fmt.Errorf("release still pending after multiple attempts")
 }
 
-func releaseCmd() *cobra.Command {
+func releaseCmd(verbose bool) *cobra.Command {
 	var buildDir, application string
 	cmd := &cobra.Command{
 		Use:   "release",
 		Short: "release a slug",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := netrcClient(cmd)
+			output := OutputterFromCmd(cmd, verbose)
+			client, err := netrcClient(output)
 			if err != nil {
 				return err
 			}
 
-			return release(cmd.Context(), cmd, client, buildDir, application)
+			return release(cmd.Context(), output, client, buildDir, application)
 		},
 	}
 

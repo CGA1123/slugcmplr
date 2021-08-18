@@ -24,10 +24,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	verbose bool
-)
-
 func main() {
 	cmd := Cmd()
 	if err := cmd.ExecuteContext(context.Background()); err != nil {
@@ -36,6 +32,8 @@ func main() {
 }
 
 func Cmd() *cobra.Command {
+	var verbose bool
+
 	rootCmd := &cobra.Command{
 		Use:           "slugcmplr",
 		Short:         "slugcmplr helps you detach building and releasing Heroku applications",
@@ -45,9 +43,9 @@ func Cmd() *cobra.Command {
 
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
 
-	rootCmd.AddCommand(prepareCmd())
-	rootCmd.AddCommand(compileCmd())
-	rootCmd.AddCommand(releaseCmd())
+	rootCmd.AddCommand(prepareCmd(verbose))
+	rootCmd.AddCommand(compileCmd(verbose))
+	rootCmd.AddCommand(releaseCmd(verbose))
 
 	return rootCmd
 }
@@ -55,6 +53,15 @@ func Cmd() *cobra.Command {
 type Outputter interface {
 	OutOrStdout() io.Writer
 	ErrOrStderr() io.Writer
+	IsVerbose() bool
+}
+
+func OutputterFromCmd(cmd *cobra.Command, verbose bool) Outputter {
+	return &outputter{
+		Err:     cmd.ErrOrStderr(),
+		Out:     cmd.OutOrStdout(),
+		Verbose: verbose,
+	}
 }
 
 func step(cmd Outputter, format string, a ...interface{}) {
@@ -70,7 +77,7 @@ func wrn(cmd Outputter, format string, a ...interface{}) {
 }
 
 func dbg(cmd Outputter, format string, a ...interface{}) {
-	if verbose {
+	if cmd.IsVerbose() {
 		log(cmd, format, a...)
 	}
 }
@@ -297,8 +304,13 @@ func outputStreamAttempt(cmd Outputter, out io.Writer, stream string, attempt in
 }
 
 type outputter struct {
-	Out io.Writer
-	Err io.Writer
+	Out     io.Writer
+	Err     io.Writer
+	Verbose bool
+}
+
+func (o *outputter) IsVerbose() bool {
+	return o.Verbose
 }
 
 func (o *outputter) OutOrStdout() io.Writer {

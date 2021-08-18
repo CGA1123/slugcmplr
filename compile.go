@@ -178,7 +178,7 @@ func compile(ctx context.Context, cmd Outputter, h *heroku.Service, buildDir, ca
 	return f.Close()
 }
 
-func compileCmd() *cobra.Command {
+func compileCmd(verbose bool) *cobra.Command {
 	var cacheDir, buildDir, image string
 	var local bool
 
@@ -187,6 +187,8 @@ func compileCmd() *cobra.Command {
 		Short: "compile the target applications",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			output := OutputterFromCmd(cmd, verbose)
+
 			if cacheDir == "" {
 				cd, err := os.MkdirTemp("", "")
 				if err != nil {
@@ -196,16 +198,16 @@ func compileCmd() *cobra.Command {
 				cacheDir = cd
 			}
 
-			dbg(cmd, "buildDir: %v", buildDir)
-			dbg(cmd, "cacheDir: %v", cacheDir)
+			dbg(output, "buildDir: %v", buildDir)
+			dbg(output, "cacheDir: %v", cacheDir)
 
 			if local {
-				client, err := netrcClient(cmd)
+				client, err := netrcClient(output)
 				if err != nil {
 					return err
 				}
 
-				return compile(cmd.Context(), cmd, client, buildDir, cacheDir)
+				return compile(cmd.Context(), output, client, buildDir, cacheDir)
 			}
 
 			netrcpath, err := netrcPath()
@@ -213,7 +215,7 @@ func compileCmd() *cobra.Command {
 				return fmt.Errorf("failed to find netrc path: %w", err)
 			}
 
-			return bootstrapDocker(cmd.Context(), cmd, buildDir, cacheDir, netrcpath, image)
+			return bootstrapDocker(cmd.Context(), output, buildDir, cacheDir, netrcpath, image)
 		},
 	}
 
