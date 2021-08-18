@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,6 +21,7 @@ func Test_Suite(t *testing.T) {
 
 	// nolint: paralleltest
 	t.Run("End to end tests", func(t *testing.T) {
+		t.Run("TestDetectFail", testDetectFail)
 		t.Run("TestPrepare", testPrepare)
 		t.Run("TestGo", testGo)
 		t.Run("TestRails", testRails)
@@ -116,6 +118,49 @@ func testPrepare(t *testing.T) {
 				}
 			}
 		})
+}
+
+func testDetectFail(t *testing.T) {
+	t.Parallel()
+
+	buildpacks := []*BuildpackDescription{
+		{URL: "https://github.com/CGA1123/heroku-buildpack-bar", Name: "CGA1123/heroku-buildpack-bar"},
+		{URL: "https://github.com/CGA1123/heroku-buildpack-detect-fail", Name: "CGA1123/heroku-buildpack-detect-fail"},
+		{URL: "https://github.com/CGA1123/heroku-buildpack-foo", Name: "CGA1123/heroku-buildpack-foo"},
+	}
+
+	configVars := map[string]string{"FOO": "BAR", "BAR": "FOO"}
+
+	withStubPrepare(t, "CGA1123/slugcmplr-fixture-binary", buildpacks, configVars, func(t *testing.T, app, buildDir string) {
+		var compileErr error
+		// Compile
+		logBuilder := &strings.Builder{}
+		writer := io.MultiWriter(logBuilder, os.Stdout)
+
+		compileCmd := Cmd()
+		compileCmd.SetOut(writer)
+		compileCmd.SetErr(writer)
+		compileCmd.SetArgs([]string{
+			"compile",
+			"--build-dir", buildDir,
+			"--image", "ghcr.io/cga1123/slugcmplr:testing"})
+
+		compileErr = compileCmd.Execute()
+
+		logs := logBuilder.String()
+
+		if strings.Contains(logs, "Found BAR exported") {
+			t.Fatalf("expected logs not to contain evidence of running heroku-buildpack-foo")
+		}
+
+		if !strings.Contains(logs, "App not compatible with buildpack: https://github.com/CGA1123/heroku-buildpack-detect-fail") {
+			t.Fatalf("expected logs to mention CGA1123/heroku-buildpack-detect-fail is not compatible")
+		}
+
+		if compileErr == nil {
+			t.Fatalf("expected err to be non-nil")
+		}
+	})
 }
 
 func testBinary(t *testing.T) {

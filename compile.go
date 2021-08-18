@@ -24,9 +24,9 @@ type Compile struct {
 	Buildpacks    []*buildpack.Buildpack `json:"buildpacks"`
 }
 
-func bootstrapDocker(ctx context.Context, buildDir, cacheDir, netrc, image string) error {
-	step(os.Stdout, "Reading metadata")
-	log(os.Stdout, "From: %v", filepath.Join(buildDir, "meta.json"))
+func bootstrapDocker(ctx context.Context, cmd Outputter, buildDir, cacheDir, netrc, image string) error {
+	step(cmd, "Reading metadata")
+	log(cmd, "From: %v", filepath.Join(buildDir, "meta.json"))
 
 	m, err := os.Open(filepath.Join(buildDir, "meta.json"))
 	if err != nil {
@@ -41,7 +41,7 @@ func bootstrapDocker(ctx context.Context, buildDir, cacheDir, netrc, image strin
 
 	imageName := strings.ReplaceAll(image, "%stack%", c.Stack)
 
-	log(os.Stdout, "Using: %v", imageName)
+	log(cmd, "Using: %v", imageName)
 
 	dockerRun := exec.CommandContext(ctx, "docker", "run",
 		"--volume", fmt.Sprintf("%v:/tmp/build", buildDir),
@@ -55,16 +55,16 @@ func bootstrapDocker(ctx context.Context, buildDir, cacheDir, netrc, image strin
 		"--cache-dir", "/tmp/cache",
 	) // #nosec G204
 
-	dbg(os.Stdout, "dockerRun: %v", dockerRun.String())
+	dbg(cmd, "dockerRun: %v", dockerRun.String())
 
-	dockerRun.Stderr, dockerRun.Stdout = os.Stderr, os.Stdout
+	dockerRun.Stderr, dockerRun.Stdout = cmd.ErrOrStderr(), cmd.OutOrStdout()
 
 	return dockerRun.Run()
 }
 
-func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) error {
-	step(os.Stdout, "Reading metadata")
-	log(os.Stdout, "From: %v", filepath.Join(buildDir, "meta.json"))
+func compile(ctx context.Context, cmd Outputter, h *heroku.Service, buildDir, cacheDir string) error {
+	step(cmd, "Reading metadata")
+	log(cmd, "From: %v", filepath.Join(buildDir, "meta.json"))
 
 	m, err := os.Open(filepath.Join(buildDir, "meta.json"))
 	if err != nil {
@@ -77,15 +77,17 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 		return fmt.Errorf("failed to decode metadata: %w", err)
 	}
 
-	log(os.Stdout, "application: %v", c.Application)
-	log(os.Stdout, "stack: %v", c.Stack)
-	log(os.Stdout, "buildpacks: %v", len(c.Buildpacks))
+	log(cmd, "application: %v", c.Application)
+	log(cmd, "stack: %v", c.Stack)
+	log(cmd, "buildpacks: %v", len(c.Buildpacks))
 
 	build := &buildpack.Build{
 		CacheDir:      cacheDir,
 		BuildDir:      buildDir,
 		Stack:         c.Stack,
 		SourceVersion: c.SourceVersion,
+		Stdout:        cmd.OutOrStdout(),
+		Stderr:        cmd.ErrOrStderr(),
 	}
 
 	previousBuildpacks := make([]*buildpack.Buildpack, 0, len(c.Buildpacks))
@@ -98,10 +100,13 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 			return err
 		}
 		if !ok {
-			continue
+			step(cmd, "App not compatible with buildpack: %v", bp.URL)
+			wrn(cmd, "Compilation failed")
+
+			return fmt.Errorf("buildpack detection failure")
 		}
 
-		step(os.Stdout, "%v app detected", detected)
+		step(cmd, "%v app detected", detected)
 
 		if err := bp.Compile(ctx, previousBuildpacks, build); err != nil {
 			return err
@@ -113,7 +118,7 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 	appDir := filepath.Join(buildDir, buildpack.AppDir)
 
 	// read Procfile
-	step(os.Stdout, "Discovering process types")
+	step(cmd, "Discovering process types")
 
 	pf, err := os.Open(filepath.Join(appDir, "Procfile"))
 	if err != nil {
@@ -127,7 +132,7 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 	}
 
 	// tar up
-	step(os.Stdout, "Compressing...")
+	step(cmd, "Compressing...")
 
 	tarball, err := targz(appDir, filepath.Join(buildDir, "app.tgz"))
 	if err != nil {
@@ -158,8 +163,8 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 		Commit:      c.SourceVersion,
 	}
 
-	step(os.Stdout, "Writing metadata")
-	log(os.Stdout, "To: %v", filepath.Join(buildDir, "release.json"))
+	step(cmd, "Writing metadata")
+	log(cmd, "To: %v", filepath.Join(buildDir, "release.json"))
 	f, err := os.Create(filepath.Join(buildDir, "release.json"))
 	if err != nil {
 		return fmt.Errorf("failed to create meta file: %w", err)
@@ -173,7 +178,7 @@ func compile(ctx context.Context, h *heroku.Service, buildDir, cacheDir string) 
 	return f.Close()
 }
 
-func compileCmd() *cobra.Command {
+func compileCmd(verbose bool) *cobra.Command {
 	var cacheDir, buildDir, image string
 	var local bool
 
@@ -182,6 +187,8 @@ func compileCmd() *cobra.Command {
 		Short: "compile the target applications",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			output := OutputterFromCmd(cmd, verbose)
+
 			if cacheDir == "" {
 				cd, err := os.MkdirTemp("", "")
 				if err != nil {
@@ -191,16 +198,16 @@ func compileCmd() *cobra.Command {
 				cacheDir = cd
 			}
 
-			dbg(os.Stdout, "buildDir: %v", buildDir)
-			dbg(os.Stdout, "cacheDir: %v", cacheDir)
+			dbg(output, "buildDir: %v", buildDir)
+			dbg(output, "cacheDir: %v", cacheDir)
 
 			if local {
-				client, err := netrcClient()
+				client, err := netrcClient(output)
 				if err != nil {
 					return err
 				}
 
-				return compile(cmd.Context(), client, buildDir, cacheDir)
+				return compile(cmd.Context(), output, client, buildDir, cacheDir)
 			}
 
 			netrcpath, err := netrcPath()
@@ -208,7 +215,7 @@ func compileCmd() *cobra.Command {
 				return fmt.Errorf("failed to find netrc path: %w", err)
 			}
 
-			return bootstrapDocker(cmd.Context(), buildDir, cacheDir, netrcpath, image)
+			return bootstrapDocker(cmd.Context(), output, buildDir, cacheDir, netrcpath, image)
 		},
 	}
 

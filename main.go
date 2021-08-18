@@ -24,10 +24,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	verbose bool
-)
-
 func main() {
 	cmd := Cmd()
 	if err := cmd.ExecuteContext(context.Background()); err != nil {
@@ -36,66 +32,84 @@ func main() {
 }
 
 func Cmd() *cobra.Command {
+	var verbose bool
+
 	rootCmd := &cobra.Command{
-		Use:   "slugcmplr",
-		Short: "slugcmplr helps you detach building and releasing Heroku applications",
+		Use:           "slugcmplr",
+		Short:         "slugcmplr helps you detach building and releasing Heroku applications",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
 
-	rootCmd.AddCommand(prepareCmd())
-	rootCmd.AddCommand(compileCmd())
-	rootCmd.AddCommand(releaseCmd())
+	rootCmd.AddCommand(prepareCmd(verbose))
+	rootCmd.AddCommand(compileCmd(verbose))
+	rootCmd.AddCommand(releaseCmd(verbose))
 
 	return rootCmd
 }
 
-func step(w io.Writer, format string, a ...interface{}) {
-	fmt.Fprintf(w, "-----> %s\n", fmt.Sprintf(format, a...))
+type Outputter interface {
+	OutOrStdout() io.Writer
+	ErrOrStderr() io.Writer
+	IsVerbose() bool
 }
 
-func log(w io.Writer, format string, a ...interface{}) {
-	fmt.Fprintf(w, "       %s\n", fmt.Sprintf(format, a...))
-}
-
-func wrn(w io.Writer, format string, a ...interface{}) {
-	fmt.Fprintf(w, " !!    %s\n", fmt.Sprintf(format, a...))
-}
-
-func dbg(w io.Writer, format string, a ...interface{}) {
-	if verbose {
-		log(w, format, a...)
+func OutputterFromCmd(cmd *cobra.Command, verbose bool) Outputter {
+	return &outputter{
+		Err:     cmd.ErrOrStderr(),
+		Out:     cmd.OutOrStdout(),
+		Verbose: verbose,
 	}
 }
 
-func commitDir(dir string) (string, error) {
-	step(os.Stdout, "Fetching HEAD commit...")
+func step(cmd Outputter, format string, a ...interface{}) {
+	fmt.Fprintf(cmd.OutOrStdout(), "-----> %s\n", fmt.Sprintf(format, a...))
+}
+
+func log(cmd Outputter, format string, a ...interface{}) {
+	fmt.Fprintf(cmd.OutOrStdout(), "       %s\n", fmt.Sprintf(format, a...))
+}
+
+func wrn(cmd Outputter, format string, a ...interface{}) {
+	fmt.Fprintf(cmd.ErrOrStderr(), " !!    %s\n", fmt.Sprintf(format, a...))
+}
+
+func dbg(cmd Outputter, format string, a ...interface{}) {
+	if cmd.IsVerbose() {
+		log(cmd, format, a...)
+	}
+}
+
+func commitDir(cmd Outputter, dir string) (string, error) {
+	step(cmd, "Fetching HEAD commit...")
 	r, err := git.PlainOpenWithOptions(dir, &git.PlainOpenOptions{DetectDotGit: true})
 	if err != nil {
-		wrn(os.Stderr, "error detecting HEAD commit: %v", err)
+		wrn(cmd, "error detecting HEAD commit: %v", err)
 		return "", err
 	}
 
 	hsh, err := r.ResolveRevision(plumbing.Revision("HEAD"))
 	if err != nil {
-		wrn(os.Stderr, "error detecting HEAD commit: %v", err)
+		wrn(cmd, "error detecting HEAD commit: %v", err)
 		return "", err
 	}
 
 	return hsh.String(), nil
 }
 
-func netrcClient() (*heroku.Service, error) {
-	step(os.Stdout, "Building client from .netrc...")
+func netrcClient(cmd Outputter) (*heroku.Service, error) {
+	step(cmd, "Building client from .netrc...")
 	netrcpath, err := netrcPath()
 	if err != nil {
-		wrn(os.Stderr, "error finding .netrc file path: %v", err)
+		wrn(cmd, "error finding .netrc file path: %v", err)
 		return nil, err
 	}
 
 	rcfile, err := netrc.ParseFile(netrcpath)
 	if err != nil {
-		wrn(os.Stderr, "error creating client from .netrc: %v", err)
+		wrn(cmd, "error creating client from .netrc: %v", err)
 		return nil, err
 	}
 
@@ -255,11 +269,11 @@ func upload(ctx context.Context, method, url, path string) error {
 	return nil
 }
 
-func outputStream(out io.Writer, stream string) error {
-	return outputStreamAttempt(out, stream, 0)
+func outputStream(cmd Outputter, out io.Writer, stream string) error {
+	return outputStreamAttempt(cmd, out, stream, 0)
 }
 
-func outputStreamAttempt(out io.Writer, stream string, attempt int) error {
+func outputStreamAttempt(cmd Outputter, out io.Writer, stream string, attempt int) error {
 	if attempt >= 5 {
 		return fmt.Errorf("failed to fetch outputStream after 5 attempts")
 	}
@@ -272,10 +286,10 @@ func outputStreamAttempt(out io.Writer, stream string, attempt int) error {
 
 	if resp.StatusCode > 399 {
 		if resp.StatusCode == 404 {
-			log(os.Stdout, "Output stream 404, likely the process is still starting up. Trying again in 2s...")
+			log(cmd, "Output stream 404, likely the process is still starting up. Trying again in 2s...")
 			time.Sleep(2 * time.Second)
 
-			return outputStreamAttempt(out, stream, attempt+1)
+			return outputStreamAttempt(cmd, out, stream, attempt+1)
 		}
 
 		return fmt.Errorf("output stream returned HTTP status: %v", resp.Status)
@@ -287,4 +301,30 @@ func outputStreamAttempt(out io.Writer, stream string, attempt int) error {
 	}
 
 	return scn.Err()
+}
+
+type outputter struct {
+	Out     io.Writer
+	Err     io.Writer
+	Verbose bool
+}
+
+func (o *outputter) IsVerbose() bool {
+	return o.Verbose
+}
+
+func (o *outputter) OutOrStdout() io.Writer {
+	if o.Out == nil {
+		return os.Stdout
+	}
+
+	return o.Out
+}
+
+func (o *outputter) ErrOrStderr() io.Writer {
+	if o.Err == nil {
+		return os.Stdout
+	}
+
+	return o.Err
 }
