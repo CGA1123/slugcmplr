@@ -18,9 +18,9 @@ type Release struct {
 	Commit      string `json:"commit"`
 }
 
-func release(ctx context.Context, h *heroku.Service, buildDir, application string) error {
-	step(os.Stdout, "Reading release")
-	log(os.Stdout, "From: %v", filepath.Join(buildDir, "release.json"))
+func release(ctx context.Context, cmd Outputter, h *heroku.Service, buildDir, application string) error {
+	step(cmd, "Reading release")
+	log(cmd, "From: %v", filepath.Join(buildDir, "release.json"))
 
 	rf, err := os.Open(filepath.Join(buildDir, "release.json"))
 	if err != nil {
@@ -37,10 +37,10 @@ func release(ctx context.Context, h *heroku.Service, buildDir, application strin
 		application = r.Application
 	}
 
-	log(os.Stdout, "application: %v", application)
-	log(os.Stdout, "slug: %v", r.Slug)
+	log(cmd, "application: %v", application)
+	log(cmd, "slug: %v", r.Slug)
 
-	step(os.Stdout, "Releasing slug %v to %v", r.Slug, r.Application)
+	step(cmd, "Releasing slug %v to %v", r.Slug, r.Application)
 
 	release, err := h.ReleaseCreate(ctx, application, heroku.ReleaseCreateOpts{
 		Slug:        r.Slug,
@@ -51,20 +51,20 @@ func release(ctx context.Context, h *heroku.Service, buildDir, application strin
 	}
 
 	if release.OutputStreamURL != nil {
-		if err := outputStream(os.Stdout, *release.OutputStreamURL); err != nil {
+		if err := outputStream(cmd, os.Stdout, *release.OutputStreamURL); err != nil {
 			return fmt.Errorf("failed to stream output: %w", err)
 		}
 	}
 
 	for i := 0; i < 36; i++ {
-		log(os.Stdout, "checking release status... (attempt %v)", i+1)
+		log(cmd, "checking release status... (attempt %v)", i+1)
 
 		info, err := h.ReleaseInfo(ctx, r.Application, release.ID)
 		if err != nil {
 			return fmt.Errorf("failed to fetch release info: %w", err)
 		}
 
-		log(os.Stdout, "status: %v", info.Status)
+		log(cmd, "status: %v", info.Status)
 
 		switch info.Status {
 		case "failed":
@@ -88,12 +88,12 @@ func releaseCmd() *cobra.Command {
 		Short: "release a slug",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := netrcClient()
+			client, err := netrcClient(cmd)
 			if err != nil {
 				return err
 			}
 
-			return release(cmd.Context(), client, buildDir, application)
+			return release(cmd.Context(), cmd, client, buildDir, application)
 		},
 	}
 

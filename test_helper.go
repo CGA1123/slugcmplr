@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"reflect"
@@ -123,7 +122,7 @@ func setupApp(t *testing.T, h *heroku.Service, fixture string) (string, string, 
 
 	info, err := waitForBuild(t, h, app)
 	if info != nil && info.Build != nil {
-		if err := outputStream(os.Stdout, info.Build.OutputStreamURL); err != nil {
+		if err := outputStream(&outputter{}, os.Stdout, info.Build.OutputStreamURL); err != nil {
 			return app.App.Name, dir, fmt.Errorf("failed to output build log: %w", err)
 		}
 	}
@@ -182,7 +181,7 @@ func ok(t *testing.T, err error) {
 func withHarness(t *testing.T, fixture string, f func(*testing.T, string, string, *heroku.Service)) {
 	acceptance(t)
 
-	h, err := netrcClient()
+	h, err := netrcClient(&outputter{})
 	ok(t, err)
 
 	production, dir, err := setupApp(t, h, fixture)
@@ -199,30 +198,38 @@ func withHarness(t *testing.T, fixture string, f func(*testing.T, string, string
 	f(t, production, dir, h)
 }
 
-func withCapturedStdOut(t *testing.T, f func()) string {
-	t.Helper()
-
-	r, w, err := os.Pipe()
+func withStubPrepare(t *testing.T, fixture string, buildpacks []*BuildpackDescription, configVars map[string]string, f func(*testing.T, string, string)) {
+	srcdir, err := os.MkdirTemp("", strings.ReplaceAll(fixture, "/", "__")+"_")
 	if err != nil {
-		t.Fatalf("failed to create pipe: %v", err)
+		t.Fatalf("failed to create tempdir: %v", err)
+	}
+	defer os.RemoveAll(srcdir)
+
+	t.Logf("tempdir for %v created: %v", fixture, srcdir)
+
+	if _, err := git.PlainClone(srcdir, false, &git.CloneOptions{
+		URL:   "https://github.com/" + fixture,
+		Depth: 1,
+	}); err != nil {
+		t.Fatalf("failed to clone %v: %v", fixture, err)
 	}
 
-	actualStdout := os.Stdout
-	os.Stdout = w
-	defer func() {
-		os.Stdout = actualStdout
-	}()
-
-	go func() {
-		f()
-
-		w.Close()
-	}()
-
-	logs, err := io.ReadAll(io.TeeReader(r, actualStdout))
+	builddir, err := os.MkdirTemp("", strings.ReplaceAll(fixture, "/", "__")+"_build_")
 	if err != nil {
-		t.Fatalf("failed to read all stdout: %v", err)
+		t.Fatalf("failed to create tempdir: %v", err)
+	}
+	defer os.RemoveAll(builddir)
+
+	if err := prepare(context.Background(), &outputter{}, &Prepare{
+		ApplicationName: fixture,
+		Stack:           "heroku-20",
+		Buildpacks:      buildpacks,
+		ConfigVars:      configVars,
+		SourceDir:       srcdir,
+		BuildDir:        builddir,
+	}); err != nil {
+		t.Fatalf("failed to prepare stubbed application: %v", err)
 	}
 
-	return string(logs)
+	f(t, fixture, builddir)
 }

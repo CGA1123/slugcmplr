@@ -3,6 +3,7 @@ package buildpack
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,6 +21,8 @@ type Build struct {
 	CacheDir      string
 	Stack         string
 	SourceVersion string
+	Stdout        io.Writer
+	Stderr        io.Writer
 }
 
 type Buildpack struct {
@@ -37,7 +40,7 @@ func (b *Buildpack) Detect(ctx context.Context, build *Build) (string, bool, err
 
 	detectCmd := exec.CommandContext(ctx, detect, filepath.Join(build.BuildDir, AppDir)) // #nosec G204
 	detectCmd.Env = environ(build)
-	detectCmd.Stderr, detectCmd.Stdout = os.Stderr, stdout
+	detectCmd.Stderr, detectCmd.Stdout = build.Stderr, stdout
 
 	if err := detectCmd.Run(); err != nil {
 		if _, ok := err.(*exec.ExitError); ok {
@@ -76,7 +79,7 @@ func (b *Buildpack) Compile(ctx context.Context, exports []*Buildpack, build *Bu
 
 	compileCmd := exec.CommandContext(ctx, "bash", "-c", strings.Join(commandParts, ";")) // #nosec G204
 	compileCmd.Env = environ(build)
-	compileCmd.Stderr, compileCmd.Stdout = os.Stderr, os.Stdout
+	compileCmd.Stderr, compileCmd.Stdout = build.Stdout, build.Stderr
 	if err := compileCmd.Run(); err != nil {
 		return fmt.Errorf("failed to compile: %w", err)
 	}
