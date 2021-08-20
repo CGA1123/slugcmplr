@@ -104,7 +104,7 @@ func prepare(ctx context.Context, cmd Outputter, p *Prepare) error {
 
 	ignore, err := slugignore.ForDirectory(p.SourceDir)
 	if err != nil {
-		return fmt.Errorf("failed to read .slugignore")
+		return fmt.Errorf("failed to read .slugignore: %v", err)
 	}
 
 	// copy source

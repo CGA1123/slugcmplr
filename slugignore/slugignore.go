@@ -7,6 +7,7 @@ package slugignore
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,9 +31,11 @@ type SlugIgnore interface {
 func ForDirectory(dir string) (SlugIgnore, error) {
 	f, err := os.Open(filepath.Join(dir, ".slugignore"))
 	if err != nil {
-		if err == os.ErrNotExist {
+		if errors.Is(err, os.ErrNotExist) {
 			return &nullSlugIgnore{}, nil
 		}
+
+		return nil, err
 	}
 	defer f.Close()
 
