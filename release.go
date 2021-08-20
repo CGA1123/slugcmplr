@@ -72,10 +72,10 @@ func release(ctx context.Context, cmd Outputter, h *heroku.Service, buildDir, ap
 		case "succeeded":
 			return nil
 		case "pending":
+			time.Sleep(5 * time.Second)
+
 			continue
 		}
-
-		time.Sleep(5 * time.Second)
 	}
 
 	return fmt.Errorf("release still pending after multiple attempts")
