@@ -23,8 +23,7 @@ available attached to tagged [releases].
 #### `prepare [APPLICATION] --build-dir [BUILD-DIR] --source-dir [SOURCE-DIR]`
 
 In the prepare step, `slugcmplr` will fetch the metadata required to compile
-your application. It will copy your project `SOURCE-DIR` into `BUILD-DIR/app`
-(it currently do not respect your `.slugcleanup` file, this is TODO).
+your application. It will copy your project `SOURCE-DIR` into `BUILD-DIR/app`.
 
 It will fetch the buildpacks as defined by your Heroku application download and
 decompress them into `BUILD-DIR/buildpacks`. If using official buildpacks (e.g.
