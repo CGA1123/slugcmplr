@@ -1,0 +1,14 @@
+#!/bin/bash
+
+if [[ -z ${SLUGCMPLR_ACC_HEROKU_PASS} ]] || [[ -z ${SLUGCMPLR_ACC_HEROKU_EMAIL} ]]; then
+
+  echo "SLUGCMPLR_ACC_HEROKU_PASS and SLUGCMPLR_ACC_HEROKU_EMAIL must be set in the environment to run acceptance tests."
+  exit 1
+fi
+
+echo "These tests will create resources in your Heroku account (${SLUGCMPLR_ACC_HEROKU_EMAIL})."
+echo "Are you sure? (Press any key to continue)"
+
+read
+
+SLUGCMPLR_ACC=true go test -v ./...
