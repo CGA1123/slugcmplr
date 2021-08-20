@@ -131,6 +131,17 @@ expected to contain a `app.json` file which describes the Heroku applications.
 
 See [app.json Schema](https://devcenter.heroku.com/articles/app-json-schema)
 
+## Contributing
+
+Bug reports and pull requests are welcome on GitHub at https://github.com/CGA1123/slugcmplr
+
+See [issues](https://github.com/CGA1123/slugcmplr/issues) if you want any
+inspiration as to what to help with or of any pending discussion/work.
+
+This project is Codespaces compatible! If you want to get started quickly spin one up.
+
+The `scripts` directory should help you get going with building and testing.
+
 ---
 
 For more background on this you might find [this] Medium article helpful.

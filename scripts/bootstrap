@@ -1,0 +1,6 @@
+#!/bin/bash
+
+go get -d ./...
+
+./scripts/build
+./scripts/test
