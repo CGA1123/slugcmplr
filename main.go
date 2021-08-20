@@ -274,7 +274,7 @@ func outputStream(cmd Outputter, out io.Writer, stream string) error {
 }
 
 func outputStreamAttempt(cmd Outputter, out io.Writer, stream string, attempt int) error {
-	if attempt >= 5 {
+	if attempt >= 10 {
 		return fmt.Errorf("failed to fetch outputStream after 5 attempts")
 	}
 
@@ -286,8 +286,8 @@ func outputStreamAttempt(cmd Outputter, out io.Writer, stream string, attempt in
 
 	if resp.StatusCode > 399 {
 		if resp.StatusCode == 404 {
-			log(cmd, "Output stream 404, likely the process is still starting up. Trying again in 2s...")
-			time.Sleep(2 * time.Second)
+			log(cmd, "Output stream 404, likely the process is still starting up. Trying again in 5s...")
+			time.Sleep(5 * time.Second)
 
 			return outputStreamAttempt(cmd, out, stream, attempt+1)
 		}
