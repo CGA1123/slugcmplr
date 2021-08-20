@@ -7,8 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/cga1123/slugcmplr/buildpack"
+	"github.com/cga1123/slugcmplr/slugignore"
 	"github.com/otiai10/copy"
 	"github.com/spf13/cobra"
 )
@@ -100,8 +102,19 @@ func prepare(ctx context.Context, cmd Outputter, p *Prepare) error {
 	log(cmd, "From: %v", p.SourceDir)
 	log(cmd, "To: %v", appDir)
 
+	ignore, err := slugignore.ForDirectory(p.SourceDir)
+	if err != nil {
+		return fmt.Errorf("failed to read .slugignore: %v", err)
+	}
+
 	// copy source
-	if err := copy.Copy(p.SourceDir, appDir); err != nil {
+	if err := copy.Copy(p.SourceDir, appDir, copy.Options{
+		Skip: func(path string) (bool, error) {
+			return ignore.IsIgnored(
+				strings.TrimPrefix(path, p.SourceDir),
+			), nil
+		},
+	}); err != nil {
 		return fmt.Errorf("failed to copy source: %w", err)
 	}
 

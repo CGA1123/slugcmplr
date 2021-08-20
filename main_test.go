@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -22,6 +23,7 @@ func Test_Suite(t *testing.T) {
 	// nolint: paralleltest
 	t.Run("End to end tests", func(t *testing.T) {
 		t.Run("TestDetectFail", testDetectFail)
+		t.Run("TestSlugIgnore", testSlugIgnore)
 		t.Run("TestPrepare", testPrepare)
 		t.Run("TestGo", testGo)
 		t.Run("TestRails", testRails)
@@ -159,6 +161,55 @@ func testDetectFail(t *testing.T) {
 
 		if compileErr == nil {
 			t.Fatalf("expected err to be non-nil")
+		}
+	})
+}
+
+func testSlugIgnore(t *testing.T) {
+	t.Parallel()
+
+	buildpacks := []*BuildpackDescription{
+		{URL: "https://github.com/CGA1123/heroku-buildpack-bar", Name: "CGA1123/heroku-buildpack-bar"},
+		{URL: "https://github.com/CGA1123/heroku-buildpack-foo", Name: "CGA1123/heroku-buildpack-foo"},
+	}
+
+	configVars := map[string]string{"FOO": "BAR", "BAR": "FOO"}
+
+	withStubPrepare(t, "CGA1123/slugcmplr-fixture-slugignore", buildpacks, configVars, func(t *testing.T, app, buildDir string) {
+		foundPaths := []string{}
+		expectedPaths := []string{
+			"/README.md",
+			"/.slugignore",
+			"/keep-me/hello.txt",
+			"/vendor/keep-this-dir/file-1.txt",
+			"/vendor/keep-this-dir/file-2.txt",
+		}
+
+		err := filepath.Walk(filepath.Join(buildDir, buildpack.AppDir), func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				t.Fatalf("error while walking directory: %v", err)
+			}
+
+			if info.Mode().IsRegular() {
+				foundPaths = append(foundPaths, strings.TrimPrefix(path, filepath.Join(buildDir, buildpack.AppDir)))
+			}
+
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("filepath.Walk error: %v", err)
+		}
+
+		sort.Strings(foundPaths)
+		sort.Strings(expectedPaths)
+
+		if !SliceEqual(foundPaths, expectedPaths, func(i int) bool {
+			return foundPaths[i] == expectedPaths[i]
+		}) {
+			expected := strings.Join(expectedPaths, "\n")
+			actual := strings.Join(foundPaths, "\n")
+
+			t.Fatalf("\nexpected:\n%v\n---\nactual:\n%v\n", expected, actual)
 		}
 	})
 }
