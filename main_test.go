@@ -185,7 +185,7 @@ func testSlugIgnore(t *testing.T) {
 			"/vendor/keep-this-dir/file-2.txt",
 		}
 
-		filepath.Walk(filepath.Join(buildDir, buildpack.AppDir), func(path string, info os.FileInfo, err error) error {
+		err := filepath.Walk(filepath.Join(buildDir, buildpack.AppDir), func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				t.Fatalf("error while walking directory: %v", err)
 			}
@@ -196,16 +196,15 @@ func testSlugIgnore(t *testing.T) {
 
 			return nil
 		})
+		if err != nil {
+			t.Fatalf("filepath.Walk error: %v", err)
+		}
 
-		sort.Sort(sort.StringSlice(foundPaths))
-		sort.Sort(sort.StringSlice(expectedPaths))
+		sort.Strings(foundPaths)
+		sort.Strings(expectedPaths)
 
 		if !SliceEqual(foundPaths, expectedPaths, func(i int) bool {
-			if foundPaths[i] != expectedPaths[i] {
-				return false
-			}
-
-			return true
+			return foundPaths[i] == expectedPaths[i]
 		}) {
 			expected := strings.Join(expectedPaths, "\n")
 			actual := strings.Join(foundPaths, "\n")

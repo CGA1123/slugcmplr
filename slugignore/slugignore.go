@@ -2,13 +2,12 @@
 // given directory.
 //
 // Heroku's .slugignore format treats all non-empty and non comment lines
-// (comment lines are those begining with a # characted) as Ruby Dir globs,
+// (comment lines are those beginning with a # characted) as Ruby Dir globs,
 package slugignore
 
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -81,10 +80,6 @@ func ForDirectory(dir string) (SlugIgnore, error) {
 		}
 	}
 
-	for k := range ignored {
-		log.Printf(k)
-	}
-
 	return cache(ignored), nil
 }
 
@@ -97,9 +92,7 @@ func (*nullSlugIgnore) IsIgnored(path string) bool {
 type cache map[string]struct{}
 
 func (c cache) IsIgnored(path string) bool {
-	if strings.HasPrefix(path, "/") {
-		path = strings.TrimPrefix(path, "/")
-	}
+	path = strings.TrimPrefix(path, "/")
 
 	for {
 		if _, ok := c[path]; ok {
