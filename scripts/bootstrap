@@ -2,5 +2,6 @@
 
 go get -d ./...
 
+./scripts/install-golanci-lint
 ./scripts/build
 ./scripts/test
