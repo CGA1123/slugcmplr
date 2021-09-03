@@ -37,35 +37,35 @@ type Prepare struct {
 // - download buildpacks   // DONE
 // - download config vars  // DONE
 // - dump metadata file    // DONE
-func prepare(ctx context.Context, cmd Outputter, p *Prepare) error {
+func prepare(ctx context.Context, out Outputter, p *Prepare) error {
 	envDir := filepath.Join(p.BuildDir, buildpack.EnvironmentDir)
 	buildpacksDir := filepath.Join(p.BuildDir, buildpack.BuildpacksDir)
 	appDir := filepath.Join(p.BuildDir, buildpack.AppDir)
 
 	// metadata
-	commit, err := commitDir(cmd, p.SourceDir)
+	commit, err := commitDir(out, p.SourceDir)
 	if err != nil {
 		return fmt.Errorf("failed to resolve HEAD commit: %w", err)
 	}
 
-	step(cmd, "Preparing app: %v", p.ApplicationName)
-	log(cmd, "stack: %v", p.Stack)
-	log(cmd, "%v config vars", len(p.ConfigVars))
-	log(cmd, "%v buildpacks", len(p.Buildpacks))
-	log(cmd, "commit: %v", commit)
-	log(cmd, "build directory: %v", p.BuildDir)
-	log(cmd, "source directory: %v", p.SourceDir)
+	step(out, "Preparing app: %v", p.ApplicationName)
+	log(out, "stack: %v", p.Stack)
+	log(out, "%v config vars", len(p.ConfigVars))
+	log(out, "%v buildpacks", len(p.Buildpacks))
+	log(out, "commit: %v", commit)
+	log(out, "build directory: %v", p.BuildDir)
+	log(out, "source directory: %v", p.SourceDir)
 
 	// download buildpacks
 	bps := make([]*buildpack.Buildpack, len(p.Buildpacks))
 	for i, bp := range p.Buildpacks {
-		step(cmd, "Downloading buildpack: %v", bp.URL)
+		step(out, "Downloading buildpack: %v", bp.URL)
 		src, err := buildpack.ParseSource(bp.URL)
 		if err != nil {
 			return fmt.Errorf("failed to parse buildpack source: %w", err)
 		}
 
-		log(cmd, "Output: %v", src.Dir())
+		log(out, "Output: %v", src.Dir())
 
 		bp, err := src.Download(ctx, buildpacksDir)
 		if err != nil {
@@ -75,13 +75,13 @@ func prepare(ctx context.Context, cmd Outputter, p *Prepare) error {
 		bps[i] = bp
 	}
 
-	step(cmd, "Using buildpacks:")
+	step(out, "Using buildpacks:")
 	for i, bp := range p.Buildpacks {
-		log(cmd, "%v. %v", i+1, bp.Name)
+		log(out, "%v. %v", i+1, bp.Name)
 	}
 
-	step(cmd, "Writing configuration variables")
-	log(cmd, "Output: %v", envDir)
+	step(out, "Writing configuration variables")
+	log(out, "Output: %v", envDir)
 
 	// write env
 	if err := os.MkdirAll(envDir, 0700); err != nil {
@@ -89,18 +89,18 @@ func prepare(ctx context.Context, cmd Outputter, p *Prepare) error {
 	}
 
 	for name, value := range p.ConfigVars {
-		dbg(cmd, "writing env: %v", name)
+		dbg(out, "writing env: %v", name)
 
-		log(cmd, "%v: %v bytes", name, len(value))
+		log(out, "%v: %v bytes", name, len(value))
 
 		if err := os.WriteFile(filepath.Join(envDir, name), []byte(value), 0600); err != nil {
 			return fmt.Errorf("error writing %v: %w", name, err)
 		}
 	}
 
-	step(cmd, "Copying source")
-	log(cmd, "From: %v", p.SourceDir)
-	log(cmd, "To: %v", appDir)
+	step(out, "Copying source")
+	log(out, "From: %v", p.SourceDir)
+	log(out, "To: %v", appDir)
 
 	ignore, err := slugignore.ForDirectory(p.SourceDir)
 	if err != nil {
@@ -118,8 +118,8 @@ func prepare(ctx context.Context, cmd Outputter, p *Prepare) error {
 		return fmt.Errorf("failed to copy source: %w", err)
 	}
 
-	step(cmd, "Writing metadata")
-	log(cmd, "To: %v", filepath.Join(p.BuildDir, "meta.json"))
+	step(out, "Writing metadata")
+	log(out, "To: %v", filepath.Join(p.BuildDir, "meta.json"))
 	f, err := os.Create(filepath.Join(p.BuildDir, "meta.json"))
 	if err != nil {
 		return fmt.Errorf("failed to create meta file: %w", err)
