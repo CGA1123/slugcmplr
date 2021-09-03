@@ -62,6 +62,7 @@ func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 	}
 
 	tarball := tar.NewReader(gz)
+	symlinks := []*tar.Header{}
 
 	for {
 		header, err := tarball.Next()
@@ -77,17 +78,7 @@ func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 			continue
 		}
 
-		var path string
-		if s.github {
-			parts := strings.SplitN(header.Name, string(filepath.Separator), 2)
-			if len(parts) > 1 {
-				path = filepath.Join(basePath, parts[1])
-			} else {
-				path = filepath.Join(basePath, parts[0])
-			}
-		} else {
-			path = filepath.Join(basePath, header.Name) // #nosec G305
-		}
+		path := buildFilepath(basePath, s, header)
 
 		// Malicious tar files can have entries containing multiple ".." in
 		// their path, which could lead to writing files outside of the
@@ -126,22 +117,44 @@ func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 				return nil, fmt.Errorf("failed to close written file (%v): %w", path, err)
 			}
 		case tar.TypeSymlink:
-			evalPath, err := filepath.EvalSymlinks(filepath.Join(path, "..", header.Linkname)) // #nosec G305
-			if err != nil {
-				return nil, fmt.Errorf("failed to evaluate symlink: %w", err)
-			}
+			symlinks = append(symlinks, header)
+		}
+	}
 
-			if !strings.HasPrefix(evalPath, basePath) {
-				return nil, fmt.Errorf("symlink breaks out of path")
-			}
+	for _, header := range symlinks {
+		path := buildFilepath(basePath, s, header)
 
-			if err := os.Symlink(header.Linkname, path); err != nil {
-				return nil, fmt.Errorf("failed to symlink %v -> %v: %w", header.Linkname, path, err)
-			}
+		evalPath, err := filepath.EvalSymlinks(filepath.Join(path, "..", header.Linkname)) // #nosec G305
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate symlink: %w", err)
+		}
+
+		if !strings.HasPrefix(evalPath, basePath) {
+			return nil, fmt.Errorf("symlink breaks out of path")
+		}
+
+		if err := os.Symlink(header.Linkname, path); err != nil {
+			return nil, fmt.Errorf("failed to symlink %v -> %v: %w", header.Linkname, path, err)
 		}
 	}
 
 	return &Buildpack{Directory: s.Dir(), URL: s.RawURL}, nil
+}
+
+func buildFilepath(basePath string, s *targzSource, header *tar.Header) string {
+	var path string
+	if s.github {
+		parts := strings.SplitN(header.Name, string(filepath.Separator), 2)
+		if len(parts) > 1 {
+			path = filepath.Join(basePath, parts[1])
+		} else {
+			path = filepath.Join(basePath, parts[0])
+		}
+	} else {
+		path = filepath.Join(basePath, header.Name) // #nosec G305
+	}
+
+	return path
 }
 
 func ParseSource(url string) (Source, error) {

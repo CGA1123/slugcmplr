@@ -7,8 +7,12 @@ if [[ -z ${SLUGCMPLR_ACC_HEROKU_PASS} ]] || [[ -z ${SLUGCMPLR_ACC_HEROKU_EMAIL} 
 fi
 
 echo "These tests will create resources in your Heroku account (${SLUGCMPLR_ACC_HEROKU_EMAIL})."
-echo "Are you sure? (Press any key to continue)"
 
-read
+read -n 1 -s -r -p "Are you sure? (Press any key to continue)"; echo
 
-SLUGCMPLR_ACC=true go test -v ./...
+echo "Running..."
+
+export SLUGCMPLR_ACC="true"
+
+go get -v -d
+go test -v -race -parallel=4 ./...
