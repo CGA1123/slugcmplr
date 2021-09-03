@@ -27,6 +27,7 @@ import (
 func main() {
 	cmd := Cmd()
 	if err := cmd.ExecuteContext(context.Background()); err != nil {
+		fmt.Printf("error: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -46,6 +47,7 @@ func Cmd() *cobra.Command {
 	rootCmd.AddCommand(prepareCmd(verbose))
 	rootCmd.AddCommand(compileCmd(verbose))
 	rootCmd.AddCommand(releaseCmd(verbose))
+	rootCmd.AddCommand(imageCmd(verbose))
 
 	return rootCmd
 }
