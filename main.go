@@ -144,8 +144,6 @@ type tarball struct {
 
 // targz will walk srcDirPath recursively and write the correspoding G-Zipped Tar
 // Archive to the given writers.
-//
-// TODO: symlinks?
 func targz(srcDirPath, dstDirPath string) (*tarball, error) {
 	f, err := os.Create(dstDirPath)
 	if err != nil {
@@ -172,24 +170,40 @@ func targz(srcDirPath, dstDirPath string) (*tarball, error) {
 			return fmt.Errorf("file moved or removed while building tarball: %w", err)
 		}
 
-		if !info.Mode().IsRegular() {
+		link := ""
+		isSymlink := false
+
+		if (info.Mode() & fs.ModeSymlink) != 0 {
+			l, err := os.Readlink(file)
+			if err != nil {
+				return fmt.Errorf("failed to readlink: %w", err)
+			}
+
+			link = l
+			isSymlink = true
+		}
+
+		if !(info.Mode().IsRegular() || isSymlink) {
 			return nil
 		}
 
-		header, err := tar.FileInfoHeader(info, d.Name())
+		header, err := tar.FileInfoHeader(info, link)
 		if err != nil {
 			return err
 		}
-
-		header.Name = strings.TrimPrefix(strings.TrimPrefix(file, srcDirPath), string(filepath.Separator))
 
 		// Heroku requires GNU Tar format (at least for slugs, maybe not for build sources?)
 		//
 		// https://devcenter.heroku.com/articles/platform-api-deploying-slugs#create-slug-archive
 		header.Format = tar.FormatGNU
+		header.Name = strings.TrimPrefix(strings.TrimPrefix(file, srcDirPath), string(filepath.Separator))
 
 		if err := tw.WriteHeader(header); err != nil {
 			return err
+		}
+
+		if isSymlink {
+			return nil
 		}
 
 		f, err := os.Open(file)
