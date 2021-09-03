@@ -24,9 +24,9 @@ type Compile struct {
 	Buildpacks    []*buildpack.Buildpack `json:"buildpacks"`
 }
 
-func bootstrapDocker(ctx context.Context, cmd Outputter, buildDir, cacheDir, netrc, image string) error {
-	step(cmd, "Reading metadata")
-	log(cmd, "From: %v", filepath.Join(buildDir, "meta.json"))
+func bootstrapDocker(ctx context.Context, out Outputter, buildDir, cacheDir, netrc, image string) error {
+	step(out, "Reading metadata")
+	log(out, "From: %v", filepath.Join(buildDir, "meta.json"))
 
 	m, err := os.Open(filepath.Join(buildDir, "meta.json"))
 	if err != nil {
@@ -41,7 +41,7 @@ func bootstrapDocker(ctx context.Context, cmd Outputter, buildDir, cacheDir, net
 
 	imageName := strings.ReplaceAll(image, "%stack%", c.Stack)
 
-	log(cmd, "Using: %v", imageName)
+	log(out, "Using: %v", imageName)
 
 	dockerRun := exec.CommandContext(ctx, "docker", "run",
 		"--volume", fmt.Sprintf("%v:/tmp/build", buildDir),
@@ -55,16 +55,16 @@ func bootstrapDocker(ctx context.Context, cmd Outputter, buildDir, cacheDir, net
 		"--cache-dir", "/tmp/cache",
 	) // #nosec G204
 
-	dbg(cmd, "dockerRun: %v", dockerRun.String())
+	dbg(out, "dockerRun: %v", dockerRun.String())
 
-	dockerRun.Stderr, dockerRun.Stdout = cmd.ErrOrStderr(), cmd.OutOrStdout()
+	dockerRun.Stderr, dockerRun.Stdout = out.ErrOrStderr(), out.OutOrStdout()
 
 	return dockerRun.Run()
 }
 
-func compile(ctx context.Context, cmd Outputter, h *heroku.Service, buildDir, cacheDir string) error {
-	step(cmd, "Reading metadata")
-	log(cmd, "From: %v", filepath.Join(buildDir, "meta.json"))
+func compile(ctx context.Context, out Outputter, h *heroku.Service, buildDir, cacheDir string) error {
+	step(out, "Reading metadata")
+	log(out, "From: %v", filepath.Join(buildDir, "meta.json"))
 
 	m, err := os.Open(filepath.Join(buildDir, "meta.json"))
 	if err != nil {
@@ -77,17 +77,17 @@ func compile(ctx context.Context, cmd Outputter, h *heroku.Service, buildDir, ca
 		return fmt.Errorf("failed to decode metadata: %w", err)
 	}
 
-	log(cmd, "application: %v", c.Application)
-	log(cmd, "stack: %v", c.Stack)
-	log(cmd, "buildpacks: %v", len(c.Buildpacks))
+	log(out, "application: %v", c.Application)
+	log(out, "stack: %v", c.Stack)
+	log(out, "buildpacks: %v", len(c.Buildpacks))
 
 	build := &buildpack.Build{
 		CacheDir:      cacheDir,
 		BuildDir:      buildDir,
 		Stack:         c.Stack,
 		SourceVersion: c.SourceVersion,
-		Stdout:        cmd.OutOrStdout(),
-		Stderr:        cmd.ErrOrStderr(),
+		Stdout:        out.OutOrStdout(),
+		Stderr:        out.ErrOrStderr(),
 	}
 
 	previousBuildpacks := make([]*buildpack.Buildpack, 0, len(c.Buildpacks))
@@ -100,13 +100,13 @@ func compile(ctx context.Context, cmd Outputter, h *heroku.Service, buildDir, ca
 			return err
 		}
 		if !ok {
-			step(cmd, "App not compatible with buildpack: %v", bp.URL)
-			wrn(cmd, "Compilation failed")
+			step(out, "App not compatible with buildpack: %v", bp.URL)
+			wrn(out, "Compilation failed")
 
 			return fmt.Errorf("buildpack detection failure")
 		}
 
-		step(cmd, "%v app detected", detected)
+		step(out, "%v app detected", detected)
 
 		if err := bp.Compile(ctx, previousBuildpacks, build); err != nil {
 			return err
@@ -118,7 +118,7 @@ func compile(ctx context.Context, cmd Outputter, h *heroku.Service, buildDir, ca
 	appDir := filepath.Join(buildDir, buildpack.AppDir)
 
 	// read Procfile
-	step(cmd, "Discovering process types")
+	step(out, "Discovering process types")
 
 	pf, err := os.Open(filepath.Join(appDir, "Procfile"))
 	if err != nil {
@@ -132,7 +132,7 @@ func compile(ctx context.Context, cmd Outputter, h *heroku.Service, buildDir, ca
 	}
 
 	// tar up
-	step(cmd, "Compressing...")
+	step(out, "Compressing...")
 
 	tarball, err := targz(appDir, filepath.Join(buildDir, "app.tgz"))
 	if err != nil {
@@ -163,8 +163,8 @@ func compile(ctx context.Context, cmd Outputter, h *heroku.Service, buildDir, ca
 		Commit:      c.SourceVersion,
 	}
 
-	step(cmd, "Writing metadata")
-	log(cmd, "To: %v", filepath.Join(buildDir, "release.json"))
+	step(out, "Writing metadata")
+	log(out, "To: %v", filepath.Join(buildDir, "release.json"))
 	f, err := os.Create(filepath.Join(buildDir, "release.json"))
 	if err != nil {
 		return fmt.Errorf("failed to create meta file: %w", err)

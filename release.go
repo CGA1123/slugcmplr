@@ -18,9 +18,9 @@ type Release struct {
 	Commit      string `json:"commit"`
 }
 
-func release(ctx context.Context, cmd Outputter, h *heroku.Service, buildDir, application string) error {
-	step(cmd, "Reading release")
-	log(cmd, "From: %v", filepath.Join(buildDir, "release.json"))
+func release(ctx context.Context, out Outputter, h *heroku.Service, buildDir, application string) error {
+	step(out, "Reading release")
+	log(out, "From: %v", filepath.Join(buildDir, "release.json"))
 
 	rf, err := os.Open(filepath.Join(buildDir, "release.json"))
 	if err != nil {
@@ -37,10 +37,10 @@ func release(ctx context.Context, cmd Outputter, h *heroku.Service, buildDir, ap
 		application = r.Application
 	}
 
-	log(cmd, "application: %v", application)
-	log(cmd, "slug: %v", r.Slug)
+	log(out, "application: %v", application)
+	log(out, "slug: %v", r.Slug)
 
-	step(cmd, "Releasing slug %v to %v", r.Slug, r.Application)
+	step(out, "Releasing slug %v to %v", r.Slug, r.Application)
 
 	release, err := h.ReleaseCreate(ctx, application, heroku.ReleaseCreateOpts{
 		Slug:        r.Slug,
@@ -51,20 +51,20 @@ func release(ctx context.Context, cmd Outputter, h *heroku.Service, buildDir, ap
 	}
 
 	if release.OutputStreamURL != nil {
-		if err := outputStream(cmd, os.Stdout, *release.OutputStreamURL); err != nil {
+		if err := outputStream(out, os.Stdout, *release.OutputStreamURL); err != nil {
 			return fmt.Errorf("failed to stream output: %w", err)
 		}
 	}
 
 	for i := 0; i < 36; i++ {
-		log(cmd, "checking release status... (attempt %v)", i+1)
+		log(out, "checking release status... (attempt %v)", i+1)
 
 		info, err := h.ReleaseInfo(ctx, r.Application, release.ID)
 		if err != nil {
 			return fmt.Errorf("failed to fetch release info: %w", err)
 		}
 
-		log(cmd, "status: %v", info.Status)
+		log(out, "status: %v", info.Status)
 
 		switch info.Status {
 		case "failed":
