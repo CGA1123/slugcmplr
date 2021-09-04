@@ -9,13 +9,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cga1123/slugcmplr"
 	"github.com/cga1123/slugcmplr/buildpack"
 	"github.com/cga1123/slugcmplr/procfile"
 	heroku "github.com/heroku/heroku-go/v5"
 	"github.com/spf13/cobra"
 )
 
-const defaultImage = "ghcr.io/cga1123/slugcmplr:%stack%"
+const defaultImage = "ghcr.io/cga1123/slugcmplr:" + slugcmplr.StackReplacePattern
 
 // Compile contains the configuration required for the compile subcommand.
 type Compile struct {
@@ -40,7 +41,7 @@ func bootstrapDocker(ctx context.Context, out outputter, buildDir, cacheDir, net
 		return fmt.Errorf("failed to decode metadata: %w", err)
 	}
 
-	imageName := strings.ReplaceAll(image, "%stack%", c.Stack)
+	imageName := slugcmplr.StackImage(image, c.Stack)
 
 	log(out, "Using: %v", imageName)
 
@@ -225,7 +226,15 @@ func compileCmd(verbose bool) *cobra.Command {
 
 	cmd.Flags().BoolVar(&local, "local", false, "Run compilation locally")
 	cmd.Flags().StringVar(&cacheDir, "cache-dir", "", "The cache directory")
-	cmd.Flags().StringVar(&image, "image", defaultImage, "Override docker image to use, include %stack% in order to substitute the stack name")
+	cmd.Flags().StringVar(
+		&image,
+		"image",
+		defaultImage,
+		fmt.Sprintf(
+			"Override docker image to use, include %s in order to substitute the stack name",
+			slugcmplr.StackReplacePattern,
+		),
+	)
 
 	return cmd
 }
