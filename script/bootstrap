@@ -3,5 +3,6 @@
 go get -d ./...
 
 ./scripts/install-golanci-lint
-./scripts/build
+./scripts/install-goreleaser
+./scripts/devbuild
 ./scripts/test

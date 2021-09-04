@@ -1,0 +1,3 @@
+#!/bin/bash
+
+curl -sSfL https://install.goreleaser.com/github.com/goreleaser/goreleaser.sh | sh
