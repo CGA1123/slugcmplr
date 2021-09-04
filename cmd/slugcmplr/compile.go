@@ -159,7 +159,7 @@ func compile(ctx context.Context, out outputter, h *heroku.Service, buildDir, ca
 
 	fmt.Printf("created slug %v\n", slug.ID)
 
-	r := &Release{
+	r := &release{
 		Application: c.Application,
 		Slug:        slug.ID,
 		Commit:      c.SourceVersion,
