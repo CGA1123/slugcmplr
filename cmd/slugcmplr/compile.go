@@ -32,7 +32,7 @@ func bootstrapDocker(ctx context.Context, out Outputter, buildDir, cacheDir, net
 	if err != nil {
 		return fmt.Errorf("failed to read metadata: %w", err)
 	}
-	defer m.Close()
+	defer m.Close() // nolint:errcheck
 
 	c := &Compile{}
 	if err := json.NewDecoder(m).Decode(c); err != nil {
@@ -70,7 +70,7 @@ func compile(ctx context.Context, out Outputter, h *heroku.Service, buildDir, ca
 	if err != nil {
 		return fmt.Errorf("failed to read metadata: %w", err)
 	}
-	defer m.Close()
+	defer m.Close() // nolint:errcheck
 
 	c := &Compile{}
 	if err := json.NewDecoder(m).Decode(c); err != nil {
@@ -124,7 +124,7 @@ func compile(ctx context.Context, out Outputter, h *heroku.Service, buildDir, ca
 	if err != nil {
 		return err
 	}
-	defer pf.Close()
+	defer pf.Close() // nolint:errcheck
 
 	p, err := procfile.Read(pf)
 	if err != nil {
@@ -169,7 +169,7 @@ func compile(ctx context.Context, out Outputter, h *heroku.Service, buildDir, ca
 	if err != nil {
 		return fmt.Errorf("failed to create meta file: %w", err)
 	}
-	defer f.Close()
+	defer f.Close() // nolint:errcheck
 
 	if err := json.NewEncoder(f).Encode(r); err != nil {
 		return fmt.Errorf("error dumping metadata: %w", err)

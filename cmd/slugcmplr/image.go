@@ -35,7 +35,7 @@ func image(ctx context.Context, out Outputter, buildDir, image, cmd string) erro
 	if err != nil {
 		return fmt.Errorf("failed to read metadata: %w", err)
 	}
-	defer m.Close()
+	defer m.Close() // nolint:errcheck
 
 	c := &Compile{}
 	if err := json.NewDecoder(m).Decode(c); err != nil {
@@ -51,7 +51,7 @@ func image(ctx context.Context, out Outputter, buildDir, image, cmd string) erro
 	if err != nil {
 		return fmt.Errorf("failed to create Dockerfile: %w", err)
 	}
-	defer f.Close()
+	defer f.Close() // nolint:errcheck
 
 	if err := t.Execute(f, templateVars{
 		BaseImage:    strings.ReplaceAll(image, "%stack%", strings.TrimPrefix(c.Stack, "heroku-")),

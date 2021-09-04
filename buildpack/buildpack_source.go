@@ -43,13 +43,13 @@ func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 	if res.StatusCode > 299 {
 		return nil, fmt.Errorf("non 2XX response code: %v", res.StatusCode)
 	}
-	defer res.Body.Close()
+	defer res.Body.Close() // nolint:errcheck
 
 	gz, err := gzip.NewReader(res.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build gzip reader: %w", err)
 	}
-	defer gz.Close()
+	defer gz.Close() // nolint:errcheck
 
 	basePath := filepath.Join(baseDir, s.Dir())
 	if err := os.MkdirAll(basePath, 0700); err != nil {

@@ -1,4 +1,4 @@
-// package slugignore implements Heroku-like .slugignore functionality for a
+// Package slugignore implements Heroku-like .slugignore functionality for a
 // given directory.
 //
 // Heroku's .slugignore format treats all non-empty and non comment lines
@@ -39,7 +39,7 @@ func ForDirectory(dir string) (SlugIgnore, error) {
 
 		return nil, err
 	}
-	defer f.Close()
+	defer f.Close() // nolint:errcheck
 
 	s := bufio.NewScanner(bufio.NewReader(f))
 	globs := []string{}

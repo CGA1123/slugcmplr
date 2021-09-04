@@ -1,3 +1,6 @@
+issues:
+  exclude-use-default: false
+
 linters:
   enable:
     - misspell
@@ -16,3 +19,11 @@ linters:
     - whitespace
     - staticcheck
     - revive
+    - errcheck
+
+linters-settings:
+    gosec:
+      excludes:
+        - G104 # already checked by errcheck
+        - G307 # already checked by errcheck
+        - G304

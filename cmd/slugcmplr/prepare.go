@@ -124,7 +124,7 @@ func prepare(ctx context.Context, out Outputter, p *Prepare) error {
 	if err != nil {
 		return fmt.Errorf("failed to create meta file: %w", err)
 	}
-	defer f.Close()
+	defer f.Close() // nolint:errcheck
 
 	c := &Compile{
 		Application:   p.ApplicationName,
