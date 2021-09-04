@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -59,21 +60,24 @@ func compile(ctx context.Context, out outputter, h *heroku.Service, c *Compile, 
 
 	fmt.Printf("created slug %v\n", u.SlugID)
 
-	r := &release{Application: c.Application, Slug: u.SlugID, Commit: u.SourceVersion}
-
 	step(out, "Writing metadata")
 	log(out, "To: %v", filepath.Join(buildDir, "release.json"))
-	f, err := os.Create(filepath.Join(buildDir, "release.json"))
-	if err != nil {
+	b := &bytes.Buffer{}
+	if err := json.NewEncoder(b).Encode(
+		&release{Application: c.Application, Slug: u.SlugID, Commit: u.SourceVersion},
+	); err != nil {
+		return fmt.Errorf("error encoding metadata: %w", err)
+	}
+
+	if err := os.WriteFile(
+		filepath.Join(buildDir, "release.json"),
+		b.Bytes(),
+		0600,
+	); err != nil {
 		return fmt.Errorf("failed to create meta file: %w", err)
 	}
-	defer f.Close() // nolint:errcheck
 
-	if err := json.NewEncoder(f).Encode(r); err != nil {
-		return fmt.Errorf("error dumping metadata: %w", err)
-	}
-
-	return f.Close()
+	return nil
 }
 
 func compileCmd(verbose bool) *cobra.Command {
