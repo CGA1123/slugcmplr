@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cga1123/slugcmplr"
 	"github.com/cga1123/slugcmplr/buildpack"
 	heroku "github.com/heroku/heroku-go/v5"
 )
@@ -127,7 +128,7 @@ func testPrepare(t *testing.T) {
 func testDetectFail(t *testing.T) {
 	t.Parallel()
 
-	buildpacks := []*BuildpackDescription{
+	buildpacks := []*slugcmplr.BuildpackReference{
 		{URL: "https://github.com/CGA1123/heroku-buildpack-bar", Name: "CGA1123/heroku-buildpack-bar"},
 		{URL: "https://github.com/CGA1123/heroku-buildpack-detect-fail", Name: "CGA1123/heroku-buildpack-detect-fail"},
 		{URL: "https://github.com/CGA1123/heroku-buildpack-foo", Name: "CGA1123/heroku-buildpack-foo"},
@@ -170,7 +171,7 @@ func testDetectFail(t *testing.T) {
 func testSlugIgnore(t *testing.T) {
 	t.Parallel()
 
-	buildpacks := []*BuildpackDescription{
+	buildpacks := []*slugcmplr.BuildpackReference{
 		{URL: "https://github.com/CGA1123/heroku-buildpack-bar", Name: "CGA1123/heroku-buildpack-bar"},
 		{URL: "https://github.com/CGA1123/heroku-buildpack-foo", Name: "CGA1123/heroku-buildpack-foo"},
 	}

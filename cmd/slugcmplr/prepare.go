@@ -1,146 +1,36 @@
 package main
 
 import (
-	"context"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
-	"strings"
 
-	"github.com/cga1123/slugcmplr/buildpack"
-	"github.com/cga1123/slugcmplr/slugignore"
-	"github.com/otiai10/copy"
+	"github.com/cga1123/slugcmplr"
 	"github.com/spf13/cobra"
 )
 
-// BuildpackDescription contains the description of a Buildpack, its raw URL
-// and Name.
-type BuildpackDescription struct {
-	Name string
-	URL  string
-}
-
-// Prepare contains the configuration required for the prepare subcommand.
-type Prepare struct {
-	ApplicationName string
-	Stack           string
-	Buildpacks      []*BuildpackDescription
-	ConfigVars      map[string]string
-	SourceDir       string
-	BuildDir        string
-}
-
-// nolint: godot
-// prepare
-//
-// - copy source dir       // DONE
-// - run slugcleanup       // TODO - do it as part of the copy? using Skip option
-// - download buildpacks   // DONE
-// - download config vars  // DONE
-// - dump metadata file    // DONE
-func prepare(ctx context.Context, out outputter, p *Prepare) error {
-	envDir := filepath.Join(p.BuildDir, buildpack.EnvironmentDir)
-	buildpacksDir := filepath.Join(p.BuildDir, buildpack.BuildpacksDir)
-	appDir := filepath.Join(p.BuildDir, buildpack.AppDir)
-
-	// metadata
-	commit, err := commitDir(out, p.SourceDir)
-	if err != nil {
-		return fmt.Errorf("failed to resolve HEAD commit: %w", err)
-	}
-
-	step(out, "Preparing app: %v", p.ApplicationName)
-	log(out, "stack: %v", p.Stack)
-	log(out, "%v config vars", len(p.ConfigVars))
-	log(out, "%v buildpacks", len(p.Buildpacks))
-	log(out, "commit: %v", commit)
-	log(out, "build directory: %v", p.BuildDir)
-	log(out, "source directory: %v", p.SourceDir)
-
-	// download buildpacks
-	bps := make([]*buildpack.Buildpack, len(p.Buildpacks))
-	for i, bp := range p.Buildpacks {
-		step(out, "Downloading buildpack: %v", bp.URL)
-		src, err := buildpack.ParseSource(bp.URL)
-		if err != nil {
-			return fmt.Errorf("failed to parse buildpack source: %w", err)
-		}
-
-		log(out, "Output: %v", src.Dir())
-
-		bp, err := src.Download(ctx, buildpacksDir)
-		if err != nil {
-			return fmt.Errorf("failed to download buildpack: %w", err)
-		}
-
-		bps[i] = bp
-	}
-
-	step(out, "Using buildpacks:")
-	for i, bp := range p.Buildpacks {
-		log(out, "%v. %v", i+1, bp.Name)
-	}
-
-	step(out, "Writing configuration variables")
-	log(out, "Output: %v", envDir)
-
-	// write env
-	if err := os.MkdirAll(envDir, 0700); err != nil {
-		return fmt.Errorf("failed to mkdir (%v): %w", envDir, err)
-	}
-
-	for name, value := range p.ConfigVars {
-		dbg(out, "writing env: %v", name)
-
-		log(out, "%v: %v bytes", name, len(value))
-
-		if err := os.WriteFile(filepath.Join(envDir, name), []byte(value), 0600); err != nil {
-			return fmt.Errorf("error writing %v: %w", name, err)
-		}
-	}
-
-	step(out, "Copying source")
-	log(out, "From: %v", p.SourceDir)
-	log(out, "To: %v", appDir)
-
-	ignore, err := slugignore.ForDirectory(p.SourceDir)
-	if err != nil {
-		return fmt.Errorf("failed to read .slugignore: %v", err)
-	}
-
-	// copy source
-	if err := copy.Copy(p.SourceDir, appDir, copy.Options{
-		Skip: func(path string) (bool, error) {
-			return ignore.IsIgnored(
-				strings.TrimPrefix(path, p.SourceDir),
-			), nil
-		},
-	}); err != nil {
-		return fmt.Errorf("failed to copy source: %w", err)
-	}
-
-	step(out, "Writing metadata")
-	log(out, "To: %v", filepath.Join(p.BuildDir, "meta.json"))
-	f, err := os.Create(filepath.Join(p.BuildDir, "meta.json"))
-	if err != nil {
-		return fmt.Errorf("failed to create meta file: %w", err)
-	}
-	defer f.Close() // nolint:errcheck
+func writeMetadata(m *slugcmplr.MetadataResult, pr *slugcmplr.PrepareResult) error {
+	metafile := filepath.Join(pr.BuildDir, "meta.json")
 
 	c := &Compile{
-		Application:   p.ApplicationName,
-		Stack:         p.Stack,
-		SourceVersion: commit,
-		Buildpacks:    bps,
+		Application:   m.ApplicationName,
+		Stack:         m.Stack,
+		SourceVersion: m.SourceVersion,
+		Buildpacks:    pr.Buildpacks,
 	}
 
-	if err := json.NewEncoder(f).Encode(c); err != nil {
-		return fmt.Errorf("error dumping metadata: %w", err)
+	b := &bytes.Buffer{}
+	if err := json.NewEncoder(b).Encode(c); err != nil {
+		return fmt.Errorf("error encoding metadata: %w", err)
 	}
 
-	return f.Close()
+	if err := os.WriteFile(metafile, b.Bytes(), 0600); err != nil {
+		return fmt.Errorf("failed to create meta file: %w", err)
+	}
+
+	return nil
 }
 
 func prepareCmd(verbose bool) *cobra.Command {
@@ -151,6 +41,7 @@ func prepareCmd(verbose bool) *cobra.Command {
 		Short: "prepare the target application for compilation",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			application := args[0]
 			output := outputterFromCmd(cmd, verbose)
 			h, err := netrcClient(output)
@@ -176,55 +67,36 @@ func prepareCmd(verbose bool) *cobra.Command {
 				srcDir = sd
 			}
 
-			dbg(output, "buildDir: %v", buildDir)
-			dbg(output, "srcDir: %v", srcDir)
-			dbg(output, "application: %v", application)
+			step(output, "Preparing app: %v", application)
 
-			ctx := cmd.Context()
-
-			app, err := h.AppInfo(ctx, application)
+			m, err := (&slugcmplr.MetadataCmd{
+				Heroku:      h,
+				Application: application,
+				SourceDir:   srcDir,
+				BuildDir:    buildDir,
+			}).Execute(ctx, output)
 			if err != nil {
-				return err
+				return fmt.Errorf("error fetching app metadata: %w", err)
 			}
 
-			configuration, err := h.ConfigVarInfoForApp(ctx, application)
+			log(output, "stack: %v", m.Stack)
+			log(output, "%v config vars", len(m.ConfigVars))
+			log(output, "%v buildpacks", len(m.Buildpacks))
+			log(output, "commit: %v", commit)
+
+			pr, err := (&slugcmplr.PrepareCmd{
+				SourceDir:  srcDir,
+				BuildDir:   buildDir,
+				ConfigVars: m.ConfigVars,
+				Buildpacks: m.Buildpacks,
+			}).Execute(ctx, output)
 			if err != nil {
-				return err
+				return fmt.Errorf("error preparing application: %w", err)
 			}
 
-			configVars := make(map[string]string, len(configuration))
-			for k, v := range configuration {
-				if v == nil {
-					continue
-				}
+			step(output, "Writing metadata")
 
-				configVars[k] = *v
-			}
-
-			bpi, err := h.BuildpackInstallationList(ctx, application, nil)
-			if err != nil {
-				return err
-			}
-			sort.Slice(bpi, func(a, b int) bool {
-				return bpi[a].Ordinal < bpi[b].Ordinal
-			})
-
-			buildpacks := make([]*BuildpackDescription, len(bpi))
-			for i, bp := range bpi {
-				buildpacks[i] = &BuildpackDescription{
-					Name: bp.Buildpack.Name,
-					URL:  bp.Buildpack.URL,
-				}
-			}
-
-			return prepare(ctx, output, &Prepare{
-				ApplicationName: application,
-				Stack:           app.Stack.Name,
-				ConfigVars:      configVars,
-				Buildpacks:      buildpacks,
-				SourceDir:       srcDir,
-				BuildDir:        buildDir,
-			})
+			return writeMetadata(m, pr)
 		},
 	}
 

@@ -1,10 +1,13 @@
 package slugcmplr
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"strings"
 
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/spf13/cobra"
 )
 
@@ -82,4 +85,20 @@ func StackImage(img, stack string) string {
 		StackNumberReplacePattern,
 		stackNumber,
 	)
+}
+
+// Commit attempts to return the current resolved HEAD commit for the git
+// repository at dir.
+func Commit(dir string) (string, error) {
+	r, err := git.PlainOpenWithOptions(dir, &git.PlainOpenOptions{DetectDotGit: true})
+	if err != nil {
+		return "", fmt.Errorf("error opening git directory: %w", err)
+	}
+
+	hsh, err := r.ResolveRevision(plumbing.Revision("HEAD"))
+	if err != nil {
+		return "", fmt.Errorf("error resolving HEAD revision: %w", err)
+	}
+
+	return hsh.String(), nil
 }

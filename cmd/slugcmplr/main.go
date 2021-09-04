@@ -18,8 +18,6 @@ import (
 	"time"
 
 	"github.com/bgentry/go-netrc/netrc"
-	git "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
 	heroku "github.com/heroku/heroku-go/v5"
 	"github.com/spf13/cobra"
 )
@@ -90,23 +88,6 @@ func dbg(cmd outputter, format string, a ...interface{}) {
 	if cmd.IsVerbose() {
 		log(cmd, format, a...)
 	}
-}
-
-func commitDir(cmd outputter, dir string) (string, error) {
-	step(cmd, "Fetching HEAD commit...")
-	r, err := git.PlainOpenWithOptions(dir, &git.PlainOpenOptions{DetectDotGit: true})
-	if err != nil {
-		wrn(cmd, "error detecting HEAD commit: %v", err)
-		return "", err
-	}
-
-	hsh, err := r.ResolveRevision(plumbing.Revision("HEAD"))
-	if err != nil {
-		wrn(cmd, "error detecting HEAD commit: %v", err)
-		return "", err
-	}
-
-	return hsh.String(), nil
 }
 
 func netrcClient(cmd outputter) (*heroku.Service, error) {
