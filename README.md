@@ -155,7 +155,7 @@ inspiration as to what to help with or of any pending discussion/work.
 
 This project is Codespaces compatible! If you want to get started quickly spin one up.
 
-The `scripts` directory should help you get going with building and testing.
+The `script` directory should help you get going with building and testing.
 
 ---
 

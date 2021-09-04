@@ -2,7 +2,7 @@
 
 go get -d ./...
 
-./scripts/install-golanci-lint
-./scripts/install-goreleaser
-./scripts/devbuild
-./scripts/test
+./script/install-golanci-lint
+./script/install-goreleaser
+./script/devbuild
+./script/test
