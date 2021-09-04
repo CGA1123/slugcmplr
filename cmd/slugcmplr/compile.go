@@ -69,10 +69,11 @@ func compile(ctx context.Context, out outputter, h *heroku.Service, c *Compile, 
 		return fmt.Errorf("error encoding metadata: %w", err)
 	}
 
+	// #nosec G306
 	if err := os.WriteFile(
 		filepath.Join(buildDir, "release.json"),
 		b.Bytes(),
-		0600,
+		0644,
 	); err != nil {
 		return fmt.Errorf("failed to create meta file: %w", err)
 	}
