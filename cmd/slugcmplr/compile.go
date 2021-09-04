@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/cga1123/slugcmplr"
@@ -24,59 +23,7 @@ type Compile struct {
 	Buildpacks    []*buildpack.Buildpack `json:"buildpacks"`
 }
 
-func bootstrapDocker(ctx context.Context, out outputter, buildDir, cacheDir, netrc, image string) error {
-	step(out, "Reading metadata")
-	log(out, "From: %v", filepath.Join(buildDir, "meta.json"))
-
-	m, err := os.Open(filepath.Join(buildDir, "meta.json"))
-	if err != nil {
-		return fmt.Errorf("failed to read metadata: %w", err)
-	}
-	defer m.Close() // nolint:errcheck
-
-	c := &Compile{}
-	if err := json.NewDecoder(m).Decode(c); err != nil {
-		return fmt.Errorf("failed to decode metadata: %w", err)
-	}
-
-	imageName := slugcmplr.StackImage(image, c.Stack)
-
-	log(out, "Using: %v", imageName)
-
-	dockerRun := exec.CommandContext(ctx, "docker", "run",
-		"--volume", fmt.Sprintf("%v:/tmp/build", buildDir),
-		"--volume", fmt.Sprintf("%v:/tmp/cache", cacheDir),
-		"--volume", fmt.Sprintf("%v:/tmp/netrc", netrc),
-		"--env", "NETRC=/tmp/netrc",
-		imageName,
-		"compile",
-		"--local",
-		"--build-dir", "/tmp/build",
-		"--cache-dir", "/tmp/cache",
-	) // #nosec G204
-
-	dbg(out, "dockerRun: %v", dockerRun.String())
-
-	dockerRun.Stderr, dockerRun.Stdout = out.ErrOrStderr(), out.OutOrStdout()
-
-	return dockerRun.Run()
-}
-
-func compile(ctx context.Context, out outputter, h *heroku.Service, buildDir, cacheDir string) error {
-	step(out, "Reading metadata")
-	log(out, "From: %v", filepath.Join(buildDir, "meta.json"))
-
-	m, err := os.Open(filepath.Join(buildDir, "meta.json"))
-	if err != nil {
-		return fmt.Errorf("failed to read metadata: %w", err)
-	}
-	defer m.Close() // nolint:errcheck
-
-	c := &Compile{}
-	if err := json.NewDecoder(m).Decode(c); err != nil {
-		return fmt.Errorf("failed to decode metadata: %w", err)
-	}
-
+func compile(ctx context.Context, out outputter, h *heroku.Service, c *Compile, buildDir, cacheDir string) error {
 	log(out, "application: %v", c.Application)
 	log(out, "stack: %v", c.Stack)
 	log(out, "buildpacks: %v", len(c.Buildpacks))
@@ -152,13 +99,27 @@ func compileCmd(verbose bool) *cobra.Command {
 			dbg(output, "buildDir: %v", buildDir)
 			dbg(output, "cacheDir: %v", cacheDir)
 
+			step(output, "Reading metadata")
+			log(output, "From: %v", filepath.Join(buildDir, "meta.json"))
+
+			m, err := os.Open(filepath.Join(buildDir, "meta.json"))
+			if err != nil {
+				return fmt.Errorf("failed to read metadata: %w", err)
+			}
+			defer m.Close() // nolint:errcheck
+
+			c := &Compile{}
+			if err := json.NewDecoder(m).Decode(c); err != nil {
+				return fmt.Errorf("failed to decode metadata: %w", err)
+			}
+
 			if local {
 				client, err := netrcClient(output)
 				if err != nil {
 					return err
 				}
 
-				return compile(cmd.Context(), output, client, buildDir, cacheDir)
+				return compile(cmd.Context(), output, client, c, buildDir, cacheDir)
 			}
 
 			netrcpath, err := netrcPath()
@@ -166,7 +127,15 @@ func compileCmd(verbose bool) *cobra.Command {
 				return fmt.Errorf("failed to find netrc path: %w", err)
 			}
 
-			return bootstrapDocker(cmd.Context(), output, buildDir, cacheDir, netrcpath, image)
+			compileDocker := &slugcmplr.CompileDockerCmd{
+				BuildDir:  buildDir,
+				CacheDir:  cacheDir,
+				NetrcPath: netrcpath,
+				Image:     image,
+				Stack:     c.Stack,
+			}
+
+			return compileDocker.Execute(cmd.Context(), output)
 		},
 	}
 
