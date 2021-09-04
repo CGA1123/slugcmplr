@@ -75,7 +75,7 @@ func testPrepare(t *testing.T) {
 				"https://github.com/CGA1123/heroku-buildpack-bar",
 				"https://github.com/CGA1123/heroku-buildpack-foo"}
 
-			if !SliceEqual(expected, meta.Buildpacks, func(i int) bool {
+			if !sliceEqual(expected, meta.Buildpacks, func(i int) bool {
 				eq := expected[i] == meta.Buildpacks[i].URL
 				if !eq {
 					t.Logf("expect index %v to be %v go %v",
@@ -205,7 +205,7 @@ func testSlugIgnore(t *testing.T) {
 		sort.Strings(foundPaths)
 		sort.Strings(expectedPaths)
 
-		if !SliceEqual(foundPaths, expectedPaths, func(i int) bool {
+		if !sliceEqual(foundPaths, expectedPaths, func(i int) bool {
 			return foundPaths[i] == expectedPaths[i]
 		}) {
 			expected := strings.Join(expectedPaths, "\n")
