@@ -34,6 +34,78 @@ func Test_Suite(t *testing.T) {
 	})
 }
 
+func Test_Image_WithProcess(t *testing.T) {
+	t.Parallel()
+
+	buildpacks := []*slugcmplr.BuildpackReference{
+		{URL: "https://github.com/CGA1123/heroku-buildpack-bar", Name: "CGA1123/heroku-buildpack-bar"},
+	}
+
+	configVars := map[string]string{"FOO": "BAR", "BAR": "FOO"}
+
+	withStubPrepare(t, "CGA1123/slugcmplr-fixture-binary", buildpacks, configVars, func(t *testing.T, app, buildDir string) {
+		imageCmd := Cmd()
+		imageCmd.SetArgs([]string{
+			"image",
+			"--build-dir", buildDir,
+			"--image", "test-image:%stack%",
+			"--process", "web",
+			"--no-build",
+		})
+
+		ok(t, imageCmd.Execute())
+
+		b, err := os.ReadFile(filepath.Join(buildDir, "Dockerfile"))
+		ok(t, err)
+
+		dockerfile := string(b)
+
+		if !strings.HasPrefix(dockerfile, "FROM test-image:heroku-20") {
+			t.Fatalf("expected dockerfile to start with expected base image")
+		}
+
+		if !strings.HasSuffix(dockerfile, "CMD ./server\n") {
+			t.Fatalf("expected dockerfile to end with expected CMD from procfile")
+		}
+	})
+}
+
+func Test_Image_WithCmd(t *testing.T) {
+	t.Parallel()
+
+	buildpacks := []*slugcmplr.BuildpackReference{
+		{URL: "https://github.com/CGA1123/heroku-buildpack-bar", Name: "CGA1123/heroku-buildpack-bar"},
+	}
+
+	configVars := map[string]string{"FOO": "BAR", "BAR": "FOO"}
+
+	withStubPrepare(t, "CGA1123/slugcmplr-fixture-binary", buildpacks, configVars, func(t *testing.T, app, buildDir string) {
+		imageCmd := Cmd()
+		imageCmd.SetArgs([]string{
+			"image",
+			"--build-dir", buildDir,
+			"--image", "test-image:%stack%",
+			"--cmd", "bundle exec puma",
+			"--no-build",
+		})
+
+		ok(t, imageCmd.Execute())
+
+		b, err := os.ReadFile(filepath.Join(buildDir, "Dockerfile"))
+		ok(t, err)
+
+		dockerfile := string(b)
+
+		if !strings.HasPrefix(dockerfile, "FROM test-image:heroku-20") {
+			t.Fatalf("expected dockerfile to start with expected base image")
+		}
+
+		if !strings.HasSuffix(dockerfile, "CMD bundle exec puma\n") {
+			t.Fatalf("expected dockerfile to end with expected CMD from CLI")
+		}
+	})
+}
+
 func testPrepare(t *testing.T) {
 	t.Parallel()
 

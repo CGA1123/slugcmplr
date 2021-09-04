@@ -54,6 +54,7 @@ type ImageCmd struct {
 	Image    string
 	Stack    string
 	Command  string
+	NoBuild  bool
 }
 
 // Execute creates a new Docker image based on a Dockerfile that will be
@@ -64,6 +65,7 @@ type ImageCmd struct {
 func (i *ImageCmd) Execute(ctx context.Context, out Outputter) error {
 	image := StackImage(i.Image, i.Stack)
 	appDir := filepath.Join(i.BuildDir, buildpack.AppDir)
+
 	dockerfile, err := Dockerfile(image, appDir, i.Command)
 	if err != nil {
 		return fmt.Errorf("failed template Dockerfile: %w", err)
@@ -74,6 +76,10 @@ func (i *ImageCmd) Execute(ctx context.Context, out Outputter) error {
 	// #nosec G306
 	if err := os.WriteFile(dockerfilePath, dockerfile, 0644); err != nil {
 		return fmt.Errorf("failed to create Dockerfile: %w", err)
+	}
+
+	if i.NoBuild {
+		return nil
 	}
 
 	dockerBuild := exec.CommandContext(ctx, "docker", "build",

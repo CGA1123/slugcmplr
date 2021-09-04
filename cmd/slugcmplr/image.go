@@ -5,13 +5,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cga1123/slugcmplr"
+	"github.com/cga1123/slugcmplr/buildpack"
+	"github.com/cga1123/slugcmplr/procfile"
 	"github.com/spf13/cobra"
 )
 
 func imageCmd(verbose bool) *cobra.Command {
-	var buildDir, img, command string
+	var buildDir, img, command, process string
+	var noBuild bool
 
 	cmd := &cobra.Command{
 		Use:   "image",
@@ -21,8 +25,22 @@ func imageCmd(verbose bool) *cobra.Command {
 			output := outputterFromCmd(cmd, verbose)
 
 			dbg(output, "buildDir: %v", buildDir)
-			dbg(output, "image: %v", img)
-			dbg(output, "command: %v", command)
+			dbg(output, "image:    %v", img)
+			dbg(output, "command:  %v", command)
+			dbg(output, "process:  %v", process)
+
+			if process == "" && command == "" {
+				return fmt.Errorf("either --cmd or --process must be provided")
+			}
+
+			if process != "" {
+				c, err := commandFromProcfile(buildDir, process)
+				if err != nil {
+					return fmt.Errorf("error determining command from Procfile: %w", err)
+				}
+
+				command = c
+			}
 
 			m, err := os.Open(filepath.Join(buildDir, "meta.json"))
 			if err != nil {
@@ -40,6 +58,7 @@ func imageCmd(verbose bool) *cobra.Command {
 				Image:    img,
 				Command:  command,
 				Stack:    c.Stack,
+				NoBuild:  noBuild,
 			}
 
 			return i.Execute(cmd.Context(), output)
@@ -50,8 +69,14 @@ func imageCmd(verbose bool) *cobra.Command {
 	cmd.MarkFlagRequired("build-dir") // nolint:errcheck
 
 	cmd.Flags().StringVar(&command, "cmd", "", "The command (CMD) to run by default")
-	cmd.MarkFlagRequired("cmd") // nolint:errcheck
+	cmd.Flags().StringVar(
+		&process,
+		"process",
+		"",
+		"The command (CMD) to run by default, based on Procfile entries. Takes precedence over --cmd",
+	)
 
+	cmd.Flags().BoolVar(&noBuild, "no-build", false, "Skip building the image, only generate the Dockerfile")
 	cmd.Flags().StringVar(
 		&img,
 		"image",
@@ -63,4 +88,24 @@ func imageCmd(verbose bool) *cobra.Command {
 	)
 
 	return cmd
+}
+
+func commandFromProcfile(buildDir, process string) (string, error) {
+	f, err := os.Open(filepath.Join(buildDir, buildpack.AppDir, "Procfile"))
+	if err != nil {
+		return "", fmt.Errorf("error opening Procfile: %w", err)
+	}
+	defer f.Close() // nolint:errcheck
+
+	pf, err := procfile.Read(f)
+	if err != nil {
+		return "", fmt.Errorf("error reading Procfile: %w", err)
+	}
+
+	c, ok := pf.Entrypoint(process)
+	if !ok {
+		return "", fmt.Errorf("%v is not defined in Procfile (%v available)", process, strings.Join(pf.Processes(), ", "))
+	}
+
+	return c, nil
 }
