@@ -30,7 +30,7 @@ type templateVars struct {
 	Command      string
 }
 
-func image(ctx context.Context, out Outputter, buildDir, image, cmd string) error {
+func image(ctx context.Context, out outputter, buildDir, image, cmd string) error {
 	m, err := os.Open(filepath.Join(buildDir, "meta.json"))
 	if err != nil {
 		return fmt.Errorf("failed to read metadata: %w", err)
@@ -83,7 +83,7 @@ func imageCmd(verbose bool) *cobra.Command {
 		Short: "build a container from your compiled application",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			output := OutputterFromCmd(cmd, verbose)
+			output := outputterFromCmd(cmd, verbose)
 
 			dbg(output, "buildDir: %v", buildDir)
 

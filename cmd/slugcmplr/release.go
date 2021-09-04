@@ -18,7 +18,7 @@ type Release struct {
 	Commit      string `json:"commit"`
 }
 
-func release(ctx context.Context, out Outputter, h *heroku.Service, buildDir, application string) error {
+func release(ctx context.Context, out outputter, h *heroku.Service, buildDir, application string) error {
 	step(out, "Reading release")
 	log(out, "From: %v", filepath.Join(buildDir, "release.json"))
 
@@ -88,7 +88,7 @@ func releaseCmd(verbose bool) *cobra.Command {
 		Short: "release a slug",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			output := OutputterFromCmd(cmd, verbose)
+			output := outputterFromCmd(cmd, verbose)
 			client, err := netrcClient(output)
 			if err != nil {
 				return err

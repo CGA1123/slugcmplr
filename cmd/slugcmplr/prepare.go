@@ -37,7 +37,7 @@ type Prepare struct {
 // - download buildpacks   // DONE
 // - download config vars  // DONE
 // - dump metadata file    // DONE
-func prepare(ctx context.Context, out Outputter, p *Prepare) error {
+func prepare(ctx context.Context, out outputter, p *Prepare) error {
 	envDir := filepath.Join(p.BuildDir, buildpack.EnvironmentDir)
 	buildpacksDir := filepath.Join(p.BuildDir, buildpack.BuildpacksDir)
 	appDir := filepath.Join(p.BuildDir, buildpack.AppDir)
@@ -149,7 +149,7 @@ func prepareCmd(verbose bool) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			application := args[0]
-			output := OutputterFromCmd(cmd, verbose)
+			output := outputterFromCmd(cmd, verbose)
 			h, err := netrcClient(output)
 			if err != nil {
 				return err

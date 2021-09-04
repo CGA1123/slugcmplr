@@ -24,7 +24,7 @@ type Compile struct {
 	Buildpacks    []*buildpack.Buildpack `json:"buildpacks"`
 }
 
-func bootstrapDocker(ctx context.Context, out Outputter, buildDir, cacheDir, netrc, image string) error {
+func bootstrapDocker(ctx context.Context, out outputter, buildDir, cacheDir, netrc, image string) error {
 	step(out, "Reading metadata")
 	log(out, "From: %v", filepath.Join(buildDir, "meta.json"))
 
@@ -62,7 +62,7 @@ func bootstrapDocker(ctx context.Context, out Outputter, buildDir, cacheDir, net
 	return dockerRun.Run()
 }
 
-func compile(ctx context.Context, out Outputter, h *heroku.Service, buildDir, cacheDir string) error {
+func compile(ctx context.Context, out outputter, h *heroku.Service, buildDir, cacheDir string) error {
 	step(out, "Reading metadata")
 	log(out, "From: %v", filepath.Join(buildDir, "meta.json"))
 
@@ -187,7 +187,7 @@ func compileCmd(verbose bool) *cobra.Command {
 		Short: "compile the target applications",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			output := OutputterFromCmd(cmd, verbose)
+			output := outputterFromCmd(cmd, verbose)
 
 			if cacheDir == "" {
 				cd, err := os.MkdirTemp("", "")
