@@ -38,6 +38,7 @@ func main() {
 	}
 }
 
+// Cmd configures the entrypoint to the slugcmplr CLI with all its subcommands.
 func Cmd() *cobra.Command {
 	var verbose bool
 
