@@ -3,6 +3,8 @@
 //
 // Heroku's .slugignore format treats all non-empty and non comment lines
 // (comment lines are those beginning with a # characted) as Ruby Dir globs,
+//
+// See: https://devcenter.heroku.com/articles/slug-compiler#ignoring-files-with-slugignore
 package slugignore
 
 import (
