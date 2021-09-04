@@ -15,11 +15,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// BuildpackDescription contains the description of a Buildpack, its raw URL
+// and Name.
 type BuildpackDescription struct {
 	Name string
 	URL  string
 }
 
+// Prepare contains the configuration required for the prepare subcommand.
 type Prepare struct {
 	ApplicationName string
 	Stack           string

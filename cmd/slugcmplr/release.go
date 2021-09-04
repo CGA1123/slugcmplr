@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Release contains the configuration required for the release subcommand.
 type Release struct {
 	Application string `json:"application"`
 	Slug        string `json:"slug"`
