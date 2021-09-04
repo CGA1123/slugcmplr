@@ -87,7 +87,7 @@ func setupApp(t *testing.T, h *heroku.Service, fixture string) (string, string, 
 	if err != nil {
 		return "", "", fmt.Errorf("failed create tmpfile")
 	}
-	defer tmp.Close()
+	defer tmp.Close() // nolint:errcheck
 
 	tarball, err := targz(dir, tmp.Name())
 	if err != nil {
@@ -205,7 +205,7 @@ func withStubPrepare(t *testing.T, fixture string, buildpacks []*BuildpackDescri
 	if err != nil {
 		t.Fatalf("failed to create tempdir: %v", err)
 	}
-	defer os.RemoveAll(srcdir)
+	defer os.RemoveAll(srcdir) // nolint:errcheck
 
 	t.Logf("tempdir for %v created: %v", fixture, srcdir)
 
@@ -220,7 +220,7 @@ func withStubPrepare(t *testing.T, fixture string, buildpacks []*BuildpackDescri
 	if err != nil {
 		t.Fatalf("failed to create tempdir: %v", err)
 	}
-	defer os.RemoveAll(builddir)
+	defer os.RemoveAll(builddir) // nolint:errcheck
 
 	if err := prepare(context.Background(), &outputter{}, &Prepare{
 		ApplicationName: fixture,

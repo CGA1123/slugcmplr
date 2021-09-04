@@ -1,4 +1,4 @@
-// package procfile allows for reading, modifying, and writing Procfile format
+// Package procfile allows for reading, modifying, and writing Procfile format
 // files.
 //
 // It does not preserve the ordering of definitions within a Procfile.

@@ -158,16 +158,16 @@ func targz(srcDirPath, dstDirPath string) (*tarball, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create tarfile: %w", err)
 	}
-	defer f.Close()
+	defer f.Close() // nolint:errcheck
 
 	sha := sha256.New()
 	mw := io.MultiWriter(sha, f)
 
 	gzw := gzip.NewWriter(mw)
-	defer gzw.Close()
+	defer gzw.Close() // nolint:errcheck
 
 	tw := tar.NewWriter(gzw)
-	defer tw.Close()
+	defer tw.Close() // nolint:errcheck
 
 	walk := func(file string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -219,7 +219,7 @@ func targz(srcDirPath, dstDirPath string) (*tarball, error) {
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer f.Close() // nolint:errcheck
 
 		if _, err := io.Copy(tw, f); err != nil {
 			return err
@@ -276,7 +276,7 @@ func upload(ctx context.Context, method, url, path string) error {
 	}
 
 	var body string
-	defer response.Body.Close()
+	defer response.Body.Close() // nolint:errcheck
 
 	b, err := io.ReadAll(response.Body)
 	if err != nil {
@@ -305,7 +305,7 @@ func outputStreamAttempt(cmd Outputter, out io.Writer, stream string, attempt in
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint:errcheck
 
 	if resp.StatusCode > 399 {
 		if resp.StatusCode == 404 {

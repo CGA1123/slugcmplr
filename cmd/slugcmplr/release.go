@@ -26,7 +26,7 @@ func release(ctx context.Context, out Outputter, h *heroku.Service, buildDir, ap
 	if err != nil {
 		return fmt.Errorf("failed to read release data: %w", err)
 	}
-	defer rf.Close()
+	defer rf.Close() // nolint:errcheck
 
 	r := &Release{}
 	if err := json.NewDecoder(rf).Decode(r); err != nil {

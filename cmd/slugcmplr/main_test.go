@@ -17,8 +17,10 @@ func Test_Suite(t *testing.T) {
 	t.Parallel()
 
 	netrcF := setupNetrc(t)
-	os.Setenv("NETRC", netrcF)
-	defer os.Remove(netrcF)
+	if err := os.Setenv("NETRC", netrcF); err != nil {
+		t.Fatalf("error setting NETRC: %v", err)
+	}
+	defer os.Remove(netrcF) // nolint:errcheck
 
 	// nolint: paralleltest
 	t.Run("End to end tests", func(t *testing.T) {
@@ -40,7 +42,7 @@ func testPrepare(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to create build directory: %v", err)
 			}
-			defer os.RemoveAll(buildDir)
+			defer os.RemoveAll(buildDir) // nolint:errcheck
 
 			prepareCmd := Cmd()
 			prepareCmd.SetArgs([]string{
@@ -241,7 +243,7 @@ func endToEndSmoke(t *testing.T, fixture string) {
 		if err != nil {
 			t.Fatalf("failed to create build director: %v", err)
 		}
-		defer os.RemoveAll(buildDir)
+		defer os.RemoveAll(buildDir) // nolint:errcheck
 
 		// Prepare
 		prepareCmd := Cmd()
