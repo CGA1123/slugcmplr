@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bgentry/go-netrc/netrc"
+	"github.com/cga1123/slugcmplr"
 	git "github.com/go-git/go-git/v5"
 	heroku "github.com/heroku/heroku-go/v5"
 )
@@ -198,7 +199,7 @@ func withHarness(t *testing.T, fixture string, f func(*testing.T, string, string
 	f(t, production, dir, h)
 }
 
-func withStubPrepare(t *testing.T, fixture string, buildpacks []*BuildpackDescription, configVars map[string]string, f func(*testing.T, string, string)) {
+func withStubPrepare(t *testing.T, fixture string, buildpacks []*slugcmplr.BuildpackReference, configVars map[string]string, f func(*testing.T, string, string)) {
 	acceptance(t)
 
 	srcdir, err := os.MkdirTemp("", strings.ReplaceAll(fixture, "/", "__")+"_")
@@ -222,15 +223,33 @@ func withStubPrepare(t *testing.T, fixture string, buildpacks []*BuildpackDescri
 	}
 	defer os.RemoveAll(builddir) // nolint:errcheck
 
-	if err := prepare(context.Background(), &stdOutputter{}, &Prepare{
+	commit, err := slugcmplr.Commit(srcdir)
+	if err != nil {
+		t.Fatalf("failed to fetch HEAD: %v", err)
+	}
+
+	m := &slugcmplr.MetadataResult{
 		ApplicationName: fixture,
 		Stack:           "heroku-20",
 		Buildpacks:      buildpacks,
 		ConfigVars:      configVars,
-		SourceDir:       srcdir,
-		BuildDir:        builddir,
-	}); err != nil {
-		t.Fatalf("failed to prepare stubbed application: %v", err)
+		SourceVersion:   commit,
+	}
+
+	p := &slugcmplr.PrepareCmd{
+		SourceDir:  srcdir,
+		BuildDir:   builddir,
+		ConfigVars: m.ConfigVars,
+		Buildpacks: m.Buildpacks,
+	}
+
+	pr, err := p.Execute(context.Background(), &stdOutputter{})
+	if err != nil {
+		t.Fatalf("error preparing application: %v", err)
+	}
+
+	if err := writeMetadata(m, pr); err != nil {
+		t.Fatalf("failed to write metadata file: %v", err)
 	}
 
 	f(t, fixture, builddir)
