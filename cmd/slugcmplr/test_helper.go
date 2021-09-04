@@ -122,7 +122,7 @@ func setupApp(t *testing.T, h *heroku.Service, fixture string) (string, string, 
 
 	info, err := waitForBuild(t, h, app)
 	if info != nil && info.Build != nil {
-		if err := outputStream(&outputter{}, os.Stdout, info.Build.OutputStreamURL); err != nil {
+		if err := outputStream(&stdOutputter{}, os.Stdout, info.Build.OutputStreamURL); err != nil {
 			return app.App.Name, dir, fmt.Errorf("failed to output build log: %w", err)
 		}
 	}
@@ -181,7 +181,7 @@ func ok(t *testing.T, err error) {
 func withHarness(t *testing.T, fixture string, f func(*testing.T, string, string, *heroku.Service)) {
 	acceptance(t)
 
-	h, err := netrcClient(&outputter{})
+	h, err := netrcClient(&stdOutputter{})
 	ok(t, err)
 
 	production, dir, err := setupApp(t, h, fixture)
@@ -222,7 +222,7 @@ func withStubPrepare(t *testing.T, fixture string, buildpacks []*BuildpackDescri
 	}
 	defer os.RemoveAll(builddir) // nolint:errcheck
 
-	if err := prepare(context.Background(), &outputter{}, &Prepare{
+	if err := prepare(context.Background(), &stdOutputter{}, &Prepare{
 		ApplicationName: fixture,
 		Stack:           "heroku-20",
 		Buildpacks:      buildpacks,

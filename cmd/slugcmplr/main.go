@@ -59,39 +59,39 @@ func Cmd() *cobra.Command {
 	return rootCmd
 }
 
-type Outputter interface {
+type outputter interface {
 	OutOrStdout() io.Writer
 	ErrOrStderr() io.Writer
 	IsVerbose() bool
 }
 
-func OutputterFromCmd(cmd *cobra.Command, verbose bool) Outputter {
-	return &outputter{
+func outputterFromCmd(cmd *cobra.Command, verbose bool) outputter {
+	return &stdOutputter{
 		Err:     cmd.ErrOrStderr(),
 		Out:     cmd.OutOrStdout(),
 		Verbose: verbose,
 	}
 }
 
-func step(cmd Outputter, format string, a ...interface{}) {
+func step(cmd outputter, format string, a ...interface{}) {
 	fmt.Fprintf(cmd.OutOrStdout(), "-----> %s\n", fmt.Sprintf(format, a...))
 }
 
-func log(cmd Outputter, format string, a ...interface{}) {
+func log(cmd outputter, format string, a ...interface{}) {
 	fmt.Fprintf(cmd.OutOrStdout(), "       %s\n", fmt.Sprintf(format, a...))
 }
 
-func wrn(cmd Outputter, format string, a ...interface{}) {
+func wrn(cmd outputter, format string, a ...interface{}) {
 	fmt.Fprintf(cmd.ErrOrStderr(), " !!    %s\n", fmt.Sprintf(format, a...))
 }
 
-func dbg(cmd Outputter, format string, a ...interface{}) {
+func dbg(cmd outputter, format string, a ...interface{}) {
 	if cmd.IsVerbose() {
 		log(cmd, format, a...)
 	}
 }
 
-func commitDir(cmd Outputter, dir string) (string, error) {
+func commitDir(cmd outputter, dir string) (string, error) {
 	step(cmd, "Fetching HEAD commit...")
 	r, err := git.PlainOpenWithOptions(dir, &git.PlainOpenOptions{DetectDotGit: true})
 	if err != nil {
@@ -108,7 +108,7 @@ func commitDir(cmd Outputter, dir string) (string, error) {
 	return hsh.String(), nil
 }
 
-func netrcClient(cmd Outputter) (*heroku.Service, error) {
+func netrcClient(cmd outputter) (*heroku.Service, error) {
 	step(cmd, "Building client from .netrc...")
 	netrcpath, err := netrcPath()
 	if err != nil {
@@ -292,11 +292,11 @@ func upload(ctx context.Context, method, url, path string) error {
 	return nil
 }
 
-func outputStream(cmd Outputter, out io.Writer, stream string) error {
+func outputStream(cmd outputter, out io.Writer, stream string) error {
 	return outputStreamAttempt(cmd, out, stream, 0)
 }
 
-func outputStreamAttempt(cmd Outputter, out io.Writer, stream string, attempt int) error {
+func outputStreamAttempt(cmd outputter, out io.Writer, stream string, attempt int) error {
 	if attempt >= 10 {
 		return fmt.Errorf("failed to fetch outputStream after 5 attempts")
 	}
@@ -326,17 +326,17 @@ func outputStreamAttempt(cmd Outputter, out io.Writer, stream string, attempt in
 	return scn.Err()
 }
 
-type outputter struct {
+type stdOutputter struct {
 	Out     io.Writer
 	Err     io.Writer
 	Verbose bool
 }
 
-func (o *outputter) IsVerbose() bool {
+func (o *stdOutputter) IsVerbose() bool {
 	return o.Verbose
 }
 
-func (o *outputter) OutOrStdout() io.Writer {
+func (o *stdOutputter) OutOrStdout() io.Writer {
 	if o.Out == nil {
 		return os.Stdout
 	}
@@ -344,7 +344,7 @@ func (o *outputter) OutOrStdout() io.Writer {
 	return o.Out
 }
 
-func (o *outputter) ErrOrStderr() io.Writer {
+func (o *stdOutputter) ErrOrStderr() io.Writer {
 	if o.Err == nil {
 		return os.Stdout
 	}
