@@ -24,6 +24,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	version = "dev"
+	commit  = "unknown"
+	date    = "unknown"
+)
+
 func main() {
 	cmd := Cmd()
 	if err := cmd.ExecuteContext(context.Background()); err != nil {
@@ -48,6 +54,7 @@ func Cmd() *cobra.Command {
 	rootCmd.AddCommand(compileCmd(verbose))
 	rootCmd.AddCommand(releaseCmd(verbose))
 	rootCmd.AddCommand(imageCmd(verbose))
+	rootCmd.AddCommand(versionCmd(verbose))
 
 	return rootCmd
 }
