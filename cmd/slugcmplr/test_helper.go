@@ -15,7 +15,7 @@ import (
 	heroku "github.com/heroku/heroku-go/v5"
 )
 
-func SliceEqual(a, b interface{}, eq func(i int) bool) bool {
+func sliceEqual(a, b interface{}, eq func(i int) bool) bool {
 	av, bv := reflect.ValueOf(a), reflect.ValueOf(b)
 	if av.Len() != bv.Len() {
 		return false
