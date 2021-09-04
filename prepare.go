@@ -68,7 +68,7 @@ func (p *PrepareCmd) Execute(ctx context.Context, out Outputter) (*PrepareResult
 	// exists.
 	ignore, err := slugignore.ForDirectory(p.SourceDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read .slugignore: %v", err)
+		return nil, fmt.Errorf("failed to read .slugignore: %w", err)
 	}
 
 	if err := copy.Copy(p.SourceDir, appDir, copy.Options{

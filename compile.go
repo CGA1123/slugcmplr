@@ -65,7 +65,7 @@ func (c *CompileCmd) Execute(ctx context.Context, out Outputter) (*CompileResult
 
 	pf, err := os.Open(filepath.Join(c.BuildDir, buildpack.AppDir, "Procfile"))
 	if err != nil {
-		return nil, fmt.Errorf("error opening Procfile: %v", err)
+		return nil, fmt.Errorf("error opening Procfile: %w", err)
 	}
 	defer pf.Close() // nolint:errcheck
 
@@ -79,7 +79,7 @@ func (c *CompileCmd) Execute(ctx context.Context, out Outputter) (*CompileResult
 		filepath.Join(c.BuildDir, "app.tgz"),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("error creating tarball: %v", err)
+		return nil, fmt.Errorf("error creating tarball: %w", err)
 	}
 
 	return &CompileResult{

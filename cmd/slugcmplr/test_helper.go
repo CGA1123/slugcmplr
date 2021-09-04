@@ -92,7 +92,7 @@ func setupApp(t *testing.T, h *heroku.Service, fixture string) (string, string, 
 
 	tarball, err := slugcmplr.Targz(dir, tmp.Name())
 	if err != nil {
-		return "", "", fmt.Errorf("failed tarring directory: %v", err)
+		return "", "", fmt.Errorf("failed tarring directory: %w", err)
 	}
 
 	src, err := h.SourceCreate(context.Background())
@@ -106,7 +106,7 @@ func setupApp(t *testing.T, h *heroku.Service, fixture string) (string, string, 
 		src.SourceBlob.PutURL,
 		tarball.Path,
 	); err != nil {
-		return "", "", fmt.Errorf("failed to upload test app: %v", err)
+		return "", "", fmt.Errorf("failed to upload test app: %w", err)
 	}
 
 	app, err := h.AppSetupCreate(context.Background(), heroku.AppSetupCreateOpts{
@@ -120,7 +120,7 @@ func setupApp(t *testing.T, h *heroku.Service, fixture string) (string, string, 
 		},
 	})
 	if err != nil {
-		return "", "", fmt.Errorf("failed to create application: %v", err)
+		return "", "", fmt.Errorf("failed to create application: %w", err)
 	}
 
 	t.Logf("created app for %v (%v)", fixture, app.App.Name)
@@ -148,7 +148,7 @@ func waitForBuild(t *testing.T, h *heroku.Service, app *heroku.AppSetup) (*herok
 
 		info, err := h.AppSetupInfo(context.Background(), id)
 		if err != nil {
-			return nil, fmt.Errorf("(%v) error fetching app info: %v", name, err)
+			return nil, fmt.Errorf("(%v) error fetching app info: %w", name, err)
 		}
 
 		t.Logf("(%v) status: %v", name, info.Status)
