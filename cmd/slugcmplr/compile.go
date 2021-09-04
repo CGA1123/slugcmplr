@@ -7,11 +7,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/cga1123/slugcmplr"
 	"github.com/cga1123/slugcmplr/buildpack"
-	"github.com/cga1123/slugcmplr/procfile"
 	heroku "github.com/heroku/heroku-go/v5"
 	"github.com/spf13/cobra"
 )
@@ -83,87 +81,38 @@ func compile(ctx context.Context, out outputter, h *heroku.Service, buildDir, ca
 	log(out, "stack: %v", c.Stack)
 	log(out, "buildpacks: %v", len(c.Buildpacks))
 
-	build := &buildpack.Build{
+	compileCmd := &slugcmplr.CompileCmd{
 		CacheDir:      cacheDir,
 		BuildDir:      buildDir,
 		Stack:         c.Stack,
 		SourceVersion: c.SourceVersion,
-		Stdout:        out.OutOrStdout(),
-		Stderr:        out.ErrOrStderr(),
+		Buildpacks:    c.Buildpacks,
 	}
 
-	previousBuildpacks := make([]*buildpack.Buildpack, 0, len(c.Buildpacks))
-	var detectedBuildpack string
-
-	// run buildpacks
-	for _, bp := range c.Buildpacks {
-		detected, ok, err := bp.Detect(ctx, build)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			step(out, "App not compatible with buildpack: %v", bp.URL)
-			wrn(out, "Compilation failed")
-
-			return fmt.Errorf("buildpack detection failure")
-		}
-
-		step(out, "%v app detected", detected)
-
-		if err := bp.Compile(ctx, previousBuildpacks, build); err != nil {
-			return err
-		}
-
-		previousBuildpacks = append(previousBuildpacks, bp)
-	}
-
-	appDir := filepath.Join(buildDir, buildpack.AppDir)
-
-	// read Procfile
-	step(out, "Discovering process types")
-
-	pf, err := os.Open(filepath.Join(appDir, "Procfile"))
+	result, err := compileCmd.Execute(ctx, out)
 	if err != nil {
-		return err
+		return fmt.Errorf("error during compilation: %w", err)
 	}
-	defer pf.Close() // nolint:errcheck
 
-	p, err := procfile.Read(pf)
+	uploadCmd := &slugcmplr.UploadCmd{
+		Heroku:            h,
+		Application:       c.Application,
+		Checksum:          result.SlugChecksum,
+		Path:              result.SlugPath,
+		DetectedBuildpack: result.DetectedBuildpack,
+		SourceVersion:     result.SourceVersion,
+		Stack:             result.Stack,
+		ProcessTypes:      result.Procfile,
+	}
+
+	u, err := uploadCmd.Execute(ctx, out)
 	if err != nil {
-		return err
+		return fmt.Errorf("error when uploading slug: %w", err)
 	}
 
-	// tar up
-	step(out, "Compressing...")
+	fmt.Printf("created slug %v\n", u.SlugID)
 
-	tarball, err := targz(appDir, filepath.Join(buildDir, "app.tgz"))
-	if err != nil {
-		return fmt.Errorf("error creating tarball: %v", err)
-	}
-
-	// create a slug
-	slug, err := h.SlugCreate(ctx, c.Application, heroku.SlugCreateOpts{
-		Checksum:                     heroku.String(tarball.checksum),
-		Commit:                       heroku.String(c.SourceVersion),
-		Stack:                        heroku.String(c.Stack),
-		BuildpackProvidedDescription: heroku.String(detectedBuildpack),
-		ProcessTypes:                 p,
-	})
-	if err != nil {
-		return err
-	}
-
-	if err := upload(ctx, strings.ToUpper(slug.Blob.Method), slug.Blob.URL, tarball.path); err != nil {
-		return err
-	}
-
-	fmt.Printf("created slug %v\n", slug.ID)
-
-	r := &release{
-		Application: c.Application,
-		Slug:        slug.ID,
-		Commit:      c.SourceVersion,
-	}
+	r := &release{Application: c.Application, Slug: u.SlugID, Commit: u.SourceVersion}
 
 	step(out, "Writing metadata")
 	log(out, "To: %v", filepath.Join(buildDir, "release.json"))

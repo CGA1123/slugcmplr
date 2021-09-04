@@ -1,20 +1,14 @@
 package main
 
 import (
-	"archive/tar"
 	"bufio"
-	"compress/gzip"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
-	"io/fs"
 	"net/http"
 	"os"
 	"os/user"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/bgentry/go-netrc/netrc"
@@ -126,152 +120,6 @@ func netrcPath() (string, error) {
 	}
 
 	return filepath.Join(u.HomeDir, ".netrc"), nil
-}
-
-type tarball struct {
-	path     string
-	checksum string
-}
-
-// targz will walk srcDirPath recursively and write the correspoding G-Zipped Tar
-// Archive to the given writers.
-func targz(srcDirPath, dstDirPath string) (*tarball, error) {
-	f, err := os.Create(dstDirPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create tarfile: %w", err)
-	}
-	defer f.Close() // nolint:errcheck
-
-	sha := sha256.New()
-	mw := io.MultiWriter(sha, f)
-
-	gzw := gzip.NewWriter(mw)
-	defer gzw.Close() // nolint:errcheck
-
-	tw := tar.NewWriter(gzw)
-	defer tw.Close() // nolint:errcheck
-
-	walk := func(file string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		info, err := d.Info()
-		if err != nil {
-			return fmt.Errorf("file moved or removed while building tarball: %w", err)
-		}
-
-		link := ""
-		isSymlink := false
-
-		if (info.Mode() & fs.ModeSymlink) != 0 {
-			l, err := os.Readlink(file)
-			if err != nil {
-				return fmt.Errorf("failed to readlink: %w", err)
-			}
-
-			link = l
-			isSymlink = true
-		}
-
-		if !(info.Mode().IsRegular() || isSymlink) {
-			return nil
-		}
-
-		header, err := tar.FileInfoHeader(info, link)
-		if err != nil {
-			return err
-		}
-
-		// Heroku requires GNU Tar format (at least for slugs, maybe not for build sources?)
-		//
-		// https://devcenter.heroku.com/articles/platform-api-deploying-slugs#create-slug-archive
-		header.Format = tar.FormatGNU
-		header.Name = strings.TrimPrefix(strings.TrimPrefix(file, srcDirPath), string(filepath.Separator))
-
-		if err := tw.WriteHeader(header); err != nil {
-			return err
-		}
-
-		if isSymlink {
-			return nil
-		}
-
-		f, err := os.Open(file)
-		if err != nil {
-			return err
-		}
-		defer f.Close() // nolint:errcheck
-
-		if _, err := io.Copy(tw, f); err != nil {
-			return err
-		}
-
-		return f.Close()
-	}
-
-	if err := filepath.WalkDir(srcDirPath, walk); err != nil {
-		return nil, fmt.Errorf("error walking directory: %w", err)
-	}
-
-	// explicitly close to ensure we flush to archive and sha, make sure we get
-	// a correct checksum.
-	if err := tw.Close(); err != nil {
-		return nil, err
-	}
-
-	if err := gzw.Close(); err != nil {
-		return nil, err
-	}
-
-	if err := f.Close(); err != nil {
-		return nil, err
-	}
-
-	return &tarball{
-		path:     dstDirPath,
-		checksum: fmt.Sprintf("SHA256:%v", hex.EncodeToString(sha.Sum(nil))),
-	}, nil
-}
-
-func upload(ctx context.Context, method, url, path string) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-
-	fi, err := f.Stat()
-	if err != nil {
-		return err
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, url, f)
-	if err != nil {
-		return err
-	}
-
-	req.ContentLength = fi.Size()
-
-	response, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-
-	var body string
-	defer response.Body.Close() // nolint:errcheck
-
-	b, err := io.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-
-	body = string(b)
-
-	if response.StatusCode > 399 {
-		return fmt.Errorf("HTTP %v: %v", response.Status, body)
-	}
-
-	return nil
 }
 
 func outputStream(cmd outputter, out io.Writer, stream string) error {
