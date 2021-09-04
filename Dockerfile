@@ -6,7 +6,9 @@ COPY . /app
 WORKDIR /app
 
 RUN go mod download
-RUN CGO_ENABLED=0 go build -o bin/ .
+
+# TODO: use goreleaser? or pass in version, commit, and date as build-args?
+RUN CGO_ENABLED=0 go build -o bin/ ./cmd/slugcmplr
 
 FROM heroku/heroku:${STACK}-build
 
