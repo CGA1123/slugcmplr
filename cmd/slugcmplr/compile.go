@@ -15,8 +15,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const DefaultImage = "ghcr.io/cga1123/slugcmplr:%stack%"
+const defaultImage = "ghcr.io/cga1123/slugcmplr:%stack%"
 
+// Compile contains the configuration required for the compile subcommand.
 type Compile struct {
 	Application   string                 `json:"application"`
 	Stack         string                 `json:"stack"`
@@ -224,7 +225,7 @@ func compileCmd(verbose bool) *cobra.Command {
 
 	cmd.Flags().BoolVar(&local, "local", false, "Run compilation locally")
 	cmd.Flags().StringVar(&cacheDir, "cache-dir", "", "The cache directory")
-	cmd.Flags().StringVar(&image, "image", DefaultImage, "Override docker image to use, include %stack% in order to substitute the stack name")
+	cmd.Flags().StringVar(&image, "image", defaultImage, "Override docker image to use, include %stack% in order to substitute the stack name")
 
 	return cmd
 }
