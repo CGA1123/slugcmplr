@@ -158,7 +158,7 @@ func testDetectFail(t *testing.T) {
 			t.Fatalf("expected logs not to contain evidence of running heroku-buildpack-foo")
 		}
 
-		if !strings.Contains(logs, "App not compatible with buildpack: https://github.com/CGA1123/heroku-buildpack-detect-fail") {
+		if !strings.Contains(logs, "buildpack detection failure: https://github.com/CGA1123/heroku-buildpack-detect-fail") {
 			t.Fatalf("expected logs to mention CGA1123/heroku-buildpack-detect-fail is not compatible")
 		}
 

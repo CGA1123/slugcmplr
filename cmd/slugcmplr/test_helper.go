@@ -90,7 +90,7 @@ func setupApp(t *testing.T, h *heroku.Service, fixture string) (string, string, 
 	}
 	defer tmp.Close() // nolint:errcheck
 
-	tarball, err := targz(dir, tmp.Name())
+	tarball, err := slugcmplr.Targz(dir, tmp.Name())
 	if err != nil {
 		return "", "", fmt.Errorf("failed tarring directory: %v", err)
 	}
@@ -100,7 +100,12 @@ func setupApp(t *testing.T, h *heroku.Service, fixture string) (string, string, 
 		return "", "", fmt.Errorf("error creating source: %w", err)
 	}
 
-	if err := upload(context.Background(), http.MethodPut, src.SourceBlob.PutURL, tarball.path); err != nil {
+	if err := slugcmplr.UploadBlob(
+		context.Background(),
+		http.MethodPut,
+		src.SourceBlob.PutURL,
+		tarball.Path,
+	); err != nil {
 		return "", "", fmt.Errorf("failed to upload test app: %v", err)
 	}
 
@@ -111,7 +116,7 @@ func setupApp(t *testing.T, h *heroku.Service, fixture string) (string, string, 
 			Version  *string `json:"version,omitempty" url:"version,omitempty,key"`
 		}{
 			URL:      heroku.String(src.SourceBlob.GetURL),
-			Checksum: heroku.String(tarball.checksum),
+			Checksum: heroku.String(tarball.Checksum),
 		},
 	})
 	if err != nil {
