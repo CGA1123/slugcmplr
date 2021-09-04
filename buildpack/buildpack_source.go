@@ -14,22 +14,68 @@ import (
 	"strings"
 )
 
+// Source described the interface for a buildpack source.
 type Source interface {
 	Download(ctx context.Context, baseDir string) (*Buildpack, error)
 	Dir() string
 }
 
-type targzSource struct {
+// ParseSource parses and returns an appropriate Source for the given buildpack URL.
+//
+// It currently supports official buildpack URLS of form
+// `urn:buildpack:foo/bar` and GitHub repository URLs.
+//
+// All other URLs are defaulted to being a generic URL to some GZipped Tar
+// archive.
+//
+// It does not support arbitrary .git URLs.
+func ParseSource(url string) (Source, error) {
+	// official buildpack
+	if strings.HasPrefix(url, "urn:buildpack:") {
+		return &TargzSource{
+			RawURL: url,
+			URL:    fmt.Sprintf("https://buildpack-registry.s3.amazonaws.com/buildpacks/%v.tgz", strings.TrimPrefix(url, "urn:buildpack:")),
+			github: false,
+		}, nil
+	}
+
+	// github buildpack
+	if strings.HasPrefix(url, "https://github.com/") {
+		parts := strings.SplitN(url, "#", 2)
+		repo := strings.TrimSuffix(parts[0], ".git")
+
+		var ref string
+		if len(parts) != 2 || parts[1] == "" {
+			ref = "HEAD"
+		} else {
+			ref = parts[1]
+		}
+
+		return &TargzSource{URL: fmt.Sprintf("%v/tarball/%v", repo, ref), RawURL: url, github: true}, nil
+	}
+
+	// TODO: support non github .git URLs (clone)
+	return &TargzSource{RawURL: url, URL: url, github: false}, nil
+}
+
+// TargzSource implements Source for GZipped Tar buildpack archives.
+//
+// It has custom support for GitHub hosted repositories and their nested
+// tarball format.
+type TargzSource struct {
 	RawURL string
 	URL    string
 	github bool
 }
 
-func (s *targzSource) Dir() string {
+// Dir returns the directory name for the buildpack being downloaded.
+func (s *TargzSource) Dir() string {
 	return sum256(s.URL)
 }
 
-func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack, error) {
+// Download downloads a GZipped Tar buildpack from the configured URL into Dir()
+// relative to baseDir.
+func (s *TargzSource) Download(ctx context.Context, baseDir string) (*Buildpack, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.URL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build request: %w", err)
@@ -141,7 +187,7 @@ func (s *targzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 	return &Buildpack{Directory: s.Dir(), URL: s.RawURL}, nil
 }
 
-func buildFilepath(basePath string, s *targzSource, header *tar.Header) string {
+func buildFilepath(basePath string, s *TargzSource, header *tar.Header) string {
 	var path string
 	if s.github {
 		parts := strings.SplitN(header.Name, string(filepath.Separator), 2)
@@ -155,35 +201,6 @@ func buildFilepath(basePath string, s *targzSource, header *tar.Header) string {
 	}
 
 	return path
-}
-
-func ParseSource(url string) (Source, error) {
-	// official buildpack
-	if strings.HasPrefix(url, "urn:buildpack:") {
-		return &targzSource{
-			RawURL: url,
-			URL:    fmt.Sprintf("https://buildpack-registry.s3.amazonaws.com/buildpacks/%v.tgz", strings.TrimPrefix(url, "urn:buildpack:")),
-			github: false,
-		}, nil
-	}
-
-	// github buildpack
-	if strings.HasPrefix(url, "https://github.com/") {
-		parts := strings.SplitN(url, "#", 2)
-		repo := strings.TrimSuffix(parts[0], ".git")
-
-		var ref string
-		if len(parts) != 2 || parts[1] == "" {
-			ref = "HEAD"
-		} else {
-			ref = parts[1]
-		}
-
-		return &targzSource{URL: fmt.Sprintf("%v/tarball/%v", repo, ref), RawURL: url, github: true}, nil
-	}
-
-	// TODO: support non github .git URLs (clone)
-	return &targzSource{RawURL: url, URL: url, github: false}, nil
 }
 
 func sum256(s string) string {
