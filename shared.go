@@ -21,6 +21,13 @@ const (
 	StackNumberReplacePattern = "%stack-number%"
 )
 
+// BuildpackReference is a reference to a buildpack, containing its raw URL and
+// Name.
+type BuildpackReference struct {
+	Name string
+	URL  string
+}
+
 // Outputter mimics the interface implemented by *cobra.Command to inject
 // custom Stdout and Stderr streams, while also allowing control over the
 // verbosity of output.
