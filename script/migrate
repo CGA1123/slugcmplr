@@ -1,0 +1,5 @@
+#!/bin/bash
+
+DATABASE_URL=${DATABASE_URL:-"postgres://localhost:5432/slugcmplr_development?sslmode=disable"}
+
+migrate -path ./store/migrations -database ${DATABASE_URL} "$@"

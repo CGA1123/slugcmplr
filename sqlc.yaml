@@ -1,0 +1,9 @@
+version: "1"
+packages:
+  - name: "store"
+    path: "./store"
+    queries: "./store/queries"
+    schema: "./store/migrations"
+    engine: "postgresql"
+    emit_interface: true
+    sql_package: "pgx/v4"

@@ -1,0 +1,4 @@
+# bin/go-post-compile is used by the heroku/go buildpack as a post-compile hook
+#!/bin/bash
+
+go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.14.1

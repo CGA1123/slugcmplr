@@ -1,0 +1,3 @@
+#!/bin/bash
+
+migrate create -dir ./store/migrations -ext sql "$@"

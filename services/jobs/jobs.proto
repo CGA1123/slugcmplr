@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package jobs;
+
+option go_package = "github.com/cga1123/slugcmplr/services/jobs";
+
+service Jobs {
+  rpc Receive(ReceiveRequest) returns (ReceiveResponse);
+  rpc ClaimToken(ClaimTokenRequest) returns (ClaimTokenResponse);
+  rpc Upload(UploadRequest) returns (UploadResponse);
+}
+
+message ReceiveRequest {
+  string receive_token = 1;
+}
+
+message ReceiveResponse {
+  string token = 1;
+  string source_url = 2;
+  string stack = 3;
+  string source_version = 4;
+  repeated string buildpack_urn = 5;
+  map<string, string> config_vars = 6;
+}
+
+message ClaimTokenRequest {
+  string receive_token = 1;
+}
+
+message ClaimTokenResponse {
+  string job_token = 1;
+}
+
+message UploadRequest {
+  string slug_checksum = 1;
+  string cache_checksum = 2;
+}
+
+message UploadResponse {
+  string slug_url = 1;
+  string cache_url = 2;
+}
