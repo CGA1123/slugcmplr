@@ -29,7 +29,7 @@ type MetadataResult struct {
 // Execute fetches the applications name, stack, buildpacks, and config
 // variables. It will also resolve the current HEAD commit of the source to be
 // compiled.
-func (m *MetadataCmd) Execute(ctx context.Context, out Outputter) (*MetadataResult, error) {
+func (m *MetadataCmd) Execute(ctx context.Context, _ Outputter) (*MetadataResult, error) {
 	commit, err := Commit(m.SourceDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve commit: %w", err)

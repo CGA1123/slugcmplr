@@ -32,7 +32,7 @@ type UploadResult struct {
 }
 
 // Execute creates a new slug resource and uploads the compiled slug to it.
-func (u *UploadCmd) Execute(ctx context.Context, out Outputter) (*UploadResult, error) {
+func (u *UploadCmd) Execute(ctx context.Context, _ Outputter) (*UploadResult, error) {
 	slug, err := u.Heroku.SlugCreate(ctx, u.Application, heroku.SlugCreateOpts{
 		Checksum:                     heroku.String(u.Checksum),
 		Commit:                       heroku.String(u.SourceVersion),

@@ -90,7 +90,7 @@ func ForDirectory(dir string) (SlugIgnore, error) {
 
 type nullSlugIgnore struct{}
 
-func (*nullSlugIgnore) IsIgnored(path string) bool {
+func (*nullSlugIgnore) IsIgnored(_ string) bool {
 	return false
 }
 

@@ -91,20 +91,37 @@ func (s *TargzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 	}
 	defer res.Body.Close() // nolint:errcheck
 
-	gz, err := gzip.NewReader(res.Body)
+	if err := Untargz(
+		res.Body,
+		filepath.Join(baseDir, s.Dir()),
+		s.github,
+	); err != nil {
+		return nil, fmt.Errorf("failed to untar: %v", err)
+	}
+
+	return &Buildpack{Directory: s.Dir(), URL: s.RawURL}, nil
+}
+
+// Untargz extracts a GZipped Tarball into dir.
+//
+// If unnest is true, during extraction the root directory of every filepath
+// being extracted is skipped.
+//
+// TODO: should this accept a context so we can cancel?
+func Untargz(r io.Reader, dir string, unnest bool) error {
+	gz, err := gzip.NewReader(r)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build gzip reader: %w", err)
+		return fmt.Errorf("failed to build gzip reader: %w", err)
 	}
 	defer gz.Close() // nolint:errcheck
 
-	basePath := filepath.Join(baseDir, s.Dir())
-	if err := os.MkdirAll(basePath, 0700); err != nil {
-		return nil, fmt.Errorf("failed to mkdir (%v): %w", basePath, err)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return fmt.Errorf("failed to mkdir (%v): %w", dir, err)
 	}
 
-	basePath, err = filepath.EvalSymlinks(basePath)
+	dir, err = filepath.EvalSymlinks(dir)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	tarball := tar.NewReader(gz)
@@ -117,14 +134,14 @@ func (s *TargzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 		}
 
 		if err != nil {
-			return nil, fmt.Errorf("error extracting tar archive: %w", err)
+			return fmt.Errorf("error extracting tar archive: %w", err)
 		}
 
 		if header == nil {
 			continue
 		}
 
-		path := buildFilepath(basePath, s, header)
+		path := buildFilepath(dir, unnest, header)
 
 		// Malicious tar files can have entries containing multiple ".." in
 		// their path, which could lead to writing files outside of the
@@ -135,18 +152,18 @@ func (s *TargzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 		// clean the resulting path, evaluating any `..`)
 		//
 		// See: https://snyk.io/research/zip-slip-vulnerability
-		if !strings.HasPrefix(path, basePath) {
-			return nil, fmt.Errorf("detected zipslip processing: %v (fullpath=%v)", header.Name, path)
+		if !strings.HasPrefix(path, dir) {
+			return fmt.Errorf("detected zipslip processing: %v (fullpath=%v)", header.Name, path)
 		}
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(path, header.FileInfo().Mode()); err != nil {
-				return nil, err
+				return err
 			}
 		case tar.TypeReg:
 			f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_TRUNC, header.FileInfo().Mode())
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			for {
@@ -155,12 +172,12 @@ func (s *TargzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 					if err == io.EOF {
 						break
 					}
-					return nil, err
+					return err
 				}
 			}
 
 			if err := f.Close(); err != nil {
-				return nil, fmt.Errorf("failed to close written file (%v): %w", path, err)
+				return fmt.Errorf("failed to close written file (%v): %w", path, err)
 			}
 		case tar.TypeSymlink:
 			symlinks = append(symlinks, header)
@@ -168,28 +185,28 @@ func (s *TargzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 	}
 
 	for _, header := range symlinks {
-		path := buildFilepath(basePath, s, header)
+		path := buildFilepath(dir, unnest, header)
 
 		evalPath, err := filepath.EvalSymlinks(filepath.Join(path, "..", header.Linkname)) // #nosec G305
 		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate symlink: %w", err)
+			return fmt.Errorf("failed to evaluate symlink: %w", err)
 		}
 
-		if !strings.HasPrefix(evalPath, basePath) {
-			return nil, fmt.Errorf("symlink breaks out of path")
+		if !strings.HasPrefix(evalPath, dir) {
+			return fmt.Errorf("symlink breaks out of path")
 		}
 
 		if err := os.Symlink(header.Linkname, path); err != nil {
-			return nil, fmt.Errorf("failed to symlink %v -> %v: %w", header.Linkname, path, err)
+			return fmt.Errorf("failed to symlink %v -> %v: %w", header.Linkname, path, err)
 		}
 	}
 
-	return &Buildpack{Directory: s.Dir(), URL: s.RawURL}, nil
+	return nil
 }
 
-func buildFilepath(basePath string, s *TargzSource, header *tar.Header) string {
+func buildFilepath(basePath string, unnest bool, header *tar.Header) string {
 	var path string
-	if s.github {
+	if unnest {
 		parts := strings.SplitN(header.Name, string(filepath.Separator), 2)
 		if len(parts) > 1 {
 			path = filepath.Join(basePath, parts[1])
