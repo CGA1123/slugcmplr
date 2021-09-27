@@ -2,10 +2,13 @@ issues:
   exclude-use-default: false
 
 linters:
+  disable:
+    - deadcode
+
   enable:
     - misspell
     - bodyclose
-    - deadcode
+    - unused
     - gofmt
     - goimports
     - gosimple
