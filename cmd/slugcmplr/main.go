@@ -49,6 +49,7 @@ func Cmd() *cobra.Command {
 		releaseCmd,
 		imageCmd,
 		versionCmd,
+		serverCmd,
 	}
 	for _, cmd := range cmds {
 		rootCmd.AddCommand(cmd(verbose))
@@ -185,4 +186,24 @@ func (o *stdOutputter) ErrOrStderr() io.Writer {
 	}
 
 	return o.Err
+}
+
+func requireEnv(names ...string) (map[string]string, error) {
+	result := map[string]string{}
+	missing := []string{}
+
+	for _, name := range names {
+		v, ok := os.LookupEnv(name)
+		if !ok {
+			missing = append(missing, name)
+		} else {
+			result[name] = v
+		}
+	}
+
+	if len(missing) > 0 {
+		return map[string]string{}, fmt.Errorf("variables not set: %v", missing)
+	}
+
+	return result, nil
 }
