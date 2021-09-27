@@ -1,4 +1,4 @@
-package procfile
+package processfile
 
 import (
 	"bufio"
