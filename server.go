@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cga1123/slugcmplr/proto/ping"
+	"github.com/cga1123/slugcmplr/services/pingsvc"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
@@ -43,6 +45,8 @@ func (s *ServerCmd) Router() *mux.Router {
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "https://imgs.xkcd.com/comics/compiling.png", http.StatusFound)
 	})
+
+	r.PathPrefix(ping.PingPathPrefix).Handler(ping.NewPingServer(&pingsvc.Service{}))
 
 	return r
 }
