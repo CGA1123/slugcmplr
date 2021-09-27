@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/cga1123/slugcmplr/buildpack"
-	"github.com/cga1123/slugcmplr/procfile"
+	"github.com/cga1123/slugcmplr/processfile"
 )
 
 // CompileCmd wraps up all the information required to compile the contents of
@@ -25,7 +25,7 @@ type CompileResult struct {
 	SlugPath          string
 	SlugChecksum      string
 	SourceVersion     string
-	Procfile          procfile.Procfile
+	Procfile          processfile.Procfile
 	DetectedBuildpack string
 	Stack             string
 }
@@ -69,7 +69,7 @@ func (c *CompileCmd) Execute(ctx context.Context, out Outputter) (*CompileResult
 	}
 	defer pf.Close() // nolint:errcheck
 
-	p, err := procfile.Read(pf)
+	procfile, err := processfile.Read(pf)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (c *CompileCmd) Execute(ctx context.Context, out Outputter) (*CompileResult
 	}
 
 	return &CompileResult{
-		Procfile:          p,
+		Procfile:          procfile,
 		DetectedBuildpack: detectedBuildpack,
 		SlugPath:          tarball.Path,
 		SlugChecksum:      tarball.Checksum,

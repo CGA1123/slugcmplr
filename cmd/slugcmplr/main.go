@@ -43,11 +43,16 @@ func Cmd() *cobra.Command {
 
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
 
-	rootCmd.AddCommand(prepareCmd(verbose))
-	rootCmd.AddCommand(compileCmd(verbose))
-	rootCmd.AddCommand(releaseCmd(verbose))
-	rootCmd.AddCommand(imageCmd(verbose))
-	rootCmd.AddCommand(versionCmd(verbose))
+	cmds := []func(bool) *cobra.Command{
+		prepareCmd,
+		compileCmd,
+		releaseCmd,
+		imageCmd,
+		versionCmd,
+	}
+	for _, cmd := range cmds {
+		rootCmd.AddCommand(cmd(verbose))
+	}
 
 	return rootCmd
 }

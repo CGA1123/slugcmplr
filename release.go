@@ -24,7 +24,7 @@ type ReleaseInfo struct {
 
 // Execute will attempt to release a given slug to an application, returning
 // the release ID and and OutputStreamURL, if there is one.
-func (r *ReleaseCmd) Execute(ctx context.Context, out Outputter) (*ReleaseInfo, error) {
+func (r *ReleaseCmd) Execute(ctx context.Context, _ Outputter) (*ReleaseInfo, error) {
 	release, err := r.Heroku.ReleaseCreate(ctx, r.Application, heroku.ReleaseCreateOpts{
 		Slug:        r.SlugID,
 		Description: heroku.String(fmt.Sprintf("Deployed %v", r.Commit[:8])),

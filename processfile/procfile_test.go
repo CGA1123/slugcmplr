@@ -1,10 +1,10 @@
-package procfile_test
+package processfile_test
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/cga1123/slugcmplr/procfile"
+	"github.com/cga1123/slugcmplr/processfile"
 )
 
 func Contain(t *testing.T, expected, actual []string) {
@@ -29,7 +29,7 @@ func Contain(t *testing.T, expected, actual []string) {
 func Test_ProcfileInMemory(t *testing.T) {
 	t.Parallel()
 
-	p := procfile.New()
+	p := processfile.New()
 
 	if _, ok := p.Entrypoint("web"); ok {
 		t.Fatalf("Entrypoint erroneous ok returned! %v", p)
@@ -58,7 +58,7 @@ func Test_ProcfileInMemory(t *testing.T) {
 func Test_ProcfileProcesses(t *testing.T) {
 	t.Parallel()
 
-	p := procfile.New()
+	p := processfile.New()
 
 	if len(p.Processes()) != 0 {
 		t.Fatalf("Processes returned non-empty slice! %v", p)
@@ -88,7 +88,7 @@ func Test_Read(t *testing.T) {
 worker: bundle exec sidekiq -c config/sidekiq.yml
 cron: bin/scheduler`
 
-	procf, err := procfile.Read(strings.NewReader(valid))
+	procf, err := processfile.Read(strings.NewReader(valid))
 	if err != nil {
 		t.Fatalf("unexpected error when reading procfile: %v", err)
 	}
@@ -116,7 +116,7 @@ cron: bin/scheduler`
 func Test_Write(t *testing.T) {
 	t.Parallel()
 
-	procf := procfile.New()
+	procf := processfile.New()
 	procf.Add("web", "bin/server")
 	procf.Add("worker", "bin/worker")
 	procf.Add("scheduler", "bin/scheduler")
@@ -130,7 +130,7 @@ func Test_Write(t *testing.T) {
 
 	procf.Write(builder) // nolint:errcheck // Writing to *strings.Builder doesn't fail
 
-	actualProcf, err := procfile.Read(strings.NewReader(builder.String()))
+	actualProcf, err := processfile.Read(strings.NewReader(builder.String()))
 	if err != nil {
 		t.Fatalf("err reading actual procfile: %v", err)
 	}

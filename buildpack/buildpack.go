@@ -115,7 +115,7 @@ func (b *Buildpack) Compile(ctx context.Context, exports []*Buildpack, build *Bu
 // sourced by subsequent buildpacks, if it exists.
 //
 // See: https://devcenter.heroku.com/articles/buildpack-api#composing-multiple-buildpacks
-func (b *Buildpack) Export(ctx context.Context, build *Build) (string, bool, error) {
+func (b *Buildpack) Export(_ context.Context, build *Build) (string, bool, error) {
 	export := filepath.Join(build.BuildDir, BuildpacksDir, b.Directory, "export")
 
 	if _, err := os.Stat(export); err == nil {

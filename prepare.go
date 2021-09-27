@@ -32,12 +32,13 @@ type PrepareResult struct {
 // Execute prepares an application for compilation by download all required
 // buildpack, copying the source into the build directory, and writing out the
 // application environment.
-func (p *PrepareCmd) Execute(ctx context.Context, out Outputter) (*PrepareResult, error) {
+func (p *PrepareCmd) Execute(ctx context.Context, _ Outputter) (*PrepareResult, error) {
 	envDir := filepath.Join(p.BuildDir, buildpack.EnvironmentDir)
 	buildpacksDir := filepath.Join(p.BuildDir, buildpack.BuildpacksDir)
 	appDir := filepath.Join(p.BuildDir, buildpack.AppDir)
 
 	// Download Buildpacks
+	// TODO: Do this in parallel?
 	bps := make([]*buildpack.Buildpack, len(p.Buildpacks))
 	for i, bp := range p.Buildpacks {
 		src, err := buildpack.ParseSource(bp.URL)
