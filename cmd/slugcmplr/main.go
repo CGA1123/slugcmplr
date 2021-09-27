@@ -12,8 +12,12 @@ import (
 	"time"
 
 	"github.com/bgentry/go-netrc/netrc"
+	"github.com/go-redis/redis/v8"
+	"github.com/google/go-github/v39/github"
 	heroku "github.com/heroku/heroku-go/v5"
 	"github.com/spf13/cobra"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"golang.org/x/oauth2"
 )
 
 var (
@@ -43,11 +47,19 @@ func Cmd() *cobra.Command {
 
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
 
-	rootCmd.AddCommand(prepareCmd(verbose))
-	rootCmd.AddCommand(compileCmd(verbose))
-	rootCmd.AddCommand(releaseCmd(verbose))
-	rootCmd.AddCommand(imageCmd(verbose))
-	rootCmd.AddCommand(versionCmd(verbose))
+	cmds := []func(bool) *cobra.Command{
+		prepareCmd,
+		compileCmd,
+		releaseCmd,
+		imageCmd,
+		versionCmd,
+		serverCmd,
+		workerCmd,
+		receiveCmd,
+	}
+	for _, cmd := range cmds {
+		rootCmd.AddCommand(cmd(verbose))
+	}
 
 	return rootCmd
 }
@@ -180,4 +192,48 @@ func (o *stdOutputter) ErrOrStderr() io.Writer {
 	}
 
 	return o.Err
+}
+
+func setupRedis(url string) (*redis.Client, error) {
+	opts, err := redis.ParseURL(url)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing redis URL: %w", err)
+	}
+
+	opts.PoolSize = 5
+
+	rdb := redis.NewClient(opts)
+
+	ctx, c := context.WithTimeout(context.Background(), 2*time.Second)
+	defer c()
+
+	if _, err := rdb.Ping(ctx).Result(); err != nil {
+		return nil, fmt.Errorf("failed to ping redis: %w", err)
+	}
+
+	return rdb, nil
+}
+
+func herokuClient(login, password string) *heroku.Service {
+	return heroku.NewService(&http.Client{
+		Transport: otelhttp.NewTransport(
+			&heroku.Transport{
+				Username: login,
+				Password: password,
+			},
+		),
+	})
+}
+
+func githubClient(token string) *github.Client {
+	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, otelhttp.DefaultClient)
+
+	return github.NewClient(
+		oauth2.NewClient(
+			ctx,
+			oauth2.StaticTokenSource(
+				&oauth2.Token{AccessToken: token},
+			),
+		),
+	)
 }

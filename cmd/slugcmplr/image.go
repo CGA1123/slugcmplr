@@ -9,7 +9,7 @@ import (
 
 	"github.com/cga1123/slugcmplr"
 	"github.com/cga1123/slugcmplr/buildpack"
-	"github.com/cga1123/slugcmplr/procfile"
+	"github.com/cga1123/slugcmplr/processfile"
 	"github.com/spf13/cobra"
 )
 
@@ -97,7 +97,7 @@ func commandFromProcfile(buildDir, process string) (string, error) {
 	}
 	defer f.Close() // nolint:errcheck
 
-	pf, err := procfile.Read(f)
+	pf, err := processfile.Read(f)
 	if err != nil {
 		return "", fmt.Errorf("error reading Procfile: %w", err)
 	}
