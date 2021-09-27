@@ -15,6 +15,8 @@ require (
 	github.com/otiai10/copy v1.6.0
 	github.com/spf13/cobra v1.2.1
 	github.com/stretchr/testify v1.7.1-0.20210427113832-6241f9ab9942
+	github.com/twitchtv/twirp v8.1.0+incompatible
+	google.golang.org/protobuf v1.26.0
 )
 
 require (
@@ -36,6 +38,7 @@ require (
 	github.com/kevinburke/ssh_config v0.0.0-20201106050909-4977a11b4351 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/pborman/uuid v1.2.0 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
