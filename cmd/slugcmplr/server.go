@@ -128,10 +128,11 @@ func defaultEnv() error {
 func otelExporter(ctx context.Context, env map[string]string) (sdktrace.SpanExporter, error) {
 	if env["SLUGCMPLR_ENV"] == "production" {
 		// OTEL OTLP exporters can be configured with the following ENV vars:
-		// - OTEL_EXPORTER_OTLP_ENDPOINT (e.g. https://api.honeycomb.io)
+		// - OTEL_EXPORTER_OTLP_ENDPOINT (e.g. https://api.honeycomb.io:443)
 		// - OTEL_EXPORTER_OTLP_HEADERS (e.g. x-honeycomb-team=<API-KEY>,x-honeycomb-dataset=<dataset>)
 		// - OTEL_EXPORTER_OTLP_COMPRESSION (e.g. gzip)
 		// - OTEL_EXPORTER_OTLP_PROTOCOL (e.g. grpc)
+		// - OTEL_EXPORTER_OTLP_CERTIFICATE (e.g. /etc/ssl/certs/ca-certificates.crt)
 		return otlptracegrpc.New(ctx)
 	}
 
