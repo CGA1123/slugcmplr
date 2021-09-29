@@ -7,10 +7,13 @@ option go_package = "github.com/cga1123/slugcmplr/services/ping";
 service Ping {
   rpc Echo(EchoRequest) returns (EchoResponse);
   rpc Boom(BoomRequest) returns (BoomResponse);
+  rpc DatabaseHealth(DatabaseHealthRequest) returns (DatabaseHealthResponse);
 }
 
 message BoomRequest {}
 message BoomResponse {}
+message DatabaseHealthRequest {}
+message DatabaseHealthResponse {}
 
 message EchoRequest {
   string msg = 1;

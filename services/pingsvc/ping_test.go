@@ -9,10 +9,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type fakeStore struct{}
+
+func (fakeStore) Health(_ context.Context) error {
+	return nil
+}
+
 func Test_Echo(t *testing.T) {
 	t.Parallel()
 
-	svc := &pingsvc.Service{}
+	svc := pingsvc.New(fakeStore{})
 
 	response, err := svc.Echo(context.Background(), &ping.EchoRequest{Msg: "hello"})
 

@@ -12,6 +12,7 @@ import (
 
 	"github.com/cga1123/slugcmplr/proto/ping"
 	"github.com/cga1123/slugcmplr/services/pingsvc"
+	"github.com/cga1123/slugcmplr/store"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/twitchtv/twirp"
@@ -36,6 +37,9 @@ type ServerCmd struct {
 
 	// Environment contains the current deployment environment, e.g. "production"
 	Environment string
+
+	// Store provides an interface to a persistent data-store
+	Store store.Querier
 }
 
 // Execute starts a slugcmplr server, blocking untile a SIGTERM/SIGINT is
@@ -52,7 +56,7 @@ func (s *ServerCmd) Router() *mux.Router {
 		http.Redirect(w, r, "https://imgs.xkcd.com/comics/compiling.png", http.StatusFound)
 	})
 
-	pingsvc := ping.NewPingServer(&pingsvc.Service{}, twirp.WithServerInterceptors(twirpObs()))
+	pingsvc := ping.NewPingServer(pingsvc.New(s.Store), twirp.WithServerInterceptors(twirpObs()))
 	r.PathPrefix(ping.PingPathPrefix).Handler(pingsvc)
 
 	return r
@@ -119,10 +123,20 @@ func timeoutHandler(t time.Duration) func(http.Handler) http.Handler {
 	}
 }
 
+func obs(n http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		span := trace.SpanFromContext(r.Context())
+		span.SetAttributes(attribute.String("type", "http_server"))
+
+		n.ServeHTTP(w, r)
+	})
+}
+
 func runServer(ctx context.Context, out Outputter, port string, r *mux.Router) error {
 	r.Use(
 		loggingHandler(out.OutOrStdout()),
 		otelmux.Middleware("slugcmplr-http"),
+		obs,
 	)
 
 	// Default Handler 404s
