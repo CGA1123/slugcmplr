@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -9,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -35,16 +37,10 @@ func serverCmd(verbose bool) *cobra.Command {
 				return fmt.Errorf("error fetching environment: %w", err)
 			}
 
-			// OTEL OTLP exporters can be configured with the following ENV vars:
-			// - OTEL_EXPORTER_OTLP_ENDPOINT (e.g. https://api.honeycomb.io)
-			// - OTEL_EXPORTER_OTLP_HEADERS (e.g. x-honeycomb-team=<API-KEY>,x-honeycomb-dataset=<dataset>)
-			// - OTEL_EXPORTER_OTLP_COMPRESSION (e.g. gzip)
-			// - OTEL_EXPORTER_OTLP_PROTOCOL (e.g. grpc)
-			exp, err := otlptracegrpc.New(cmd.Context())
+			exp, err := otelExporter(cmd.Context(), env)
 			if err != nil {
 				return fmt.Errorf("failed to setup otelgrpc exporter: %w", err)
 			}
-
 			bsp := sdktrace.NewBatchSpanProcessor(exp)
 			tp := sdktrace.NewTracerProvider(
 				sdktrace.WithSpanProcessor(bsp),
@@ -127,4 +123,17 @@ func defaultEnv() error {
 	}
 
 	return nil
+}
+
+func otelExporter(ctx context.Context, env map[string]string) (sdktrace.SpanExporter, error) {
+	if env["SLUGCMPLR_ENV"] == "production" {
+		// OTEL OTLP exporters can be configured with the following ENV vars:
+		// - OTEL_EXPORTER_OTLP_ENDPOINT (e.g. https://api.honeycomb.io)
+		// - OTEL_EXPORTER_OTLP_HEADERS (e.g. x-honeycomb-team=<API-KEY>,x-honeycomb-dataset=<dataset>)
+		// - OTEL_EXPORTER_OTLP_COMPRESSION (e.g. gzip)
+		// - OTEL_EXPORTER_OTLP_PROTOCOL (e.g. grpc)
+		return otlptracegrpc.New(ctx)
+	}
+
+	return stdouttrace.New()
 }
