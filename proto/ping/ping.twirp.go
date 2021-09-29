@@ -34,6 +34,8 @@ const _ = twirp.TwirpPackageMinVersion_8_1_0
 
 type Ping interface {
 	Echo(context.Context, *EchoRequest) (*EchoResponse, error)
+
+	Boom(context.Context, *BoomRequest) (*BoomResponse, error)
 }
 
 // ====================
@@ -42,7 +44,7 @@ type Ping interface {
 
 type pingProtobufClient struct {
 	client      HTTPClient
-	urls        [1]string
+	urls        [2]string
 	interceptor twirp.Interceptor
 	opts        twirp.ClientOptions
 }
@@ -70,8 +72,9 @@ func NewPingProtobufClient(baseURL string, client HTTPClient, opts ...twirp.Clie
 	// Build method URLs: <baseURL>[<prefix>]/<package>.<Service>/<Method>
 	serviceURL := sanitizeBaseURL(baseURL)
 	serviceURL += baseServicePath(pathPrefix, "ping", "Ping")
-	urls := [1]string{
+	urls := [2]string{
 		serviceURL + "Echo",
+		serviceURL + "Boom",
 	}
 
 	return &pingProtobufClient{
@@ -128,13 +131,59 @@ func (c *pingProtobufClient) callEcho(ctx context.Context, in *EchoRequest) (*Ec
 	return out, nil
 }
 
+func (c *pingProtobufClient) Boom(ctx context.Context, in *BoomRequest) (*BoomResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "ping")
+	ctx = ctxsetters.WithServiceName(ctx, "Ping")
+	ctx = ctxsetters.WithMethodName(ctx, "Boom")
+	caller := c.callBoom
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *BoomRequest) (*BoomResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*BoomRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*BoomRequest) when calling interceptor")
+					}
+					return c.callBoom(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*BoomResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*BoomResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *pingProtobufClient) callBoom(ctx context.Context, in *BoomRequest) (*BoomResponse, error) {
+	out := new(BoomResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
 // ================
 // Ping JSON Client
 // ================
 
 type pingJSONClient struct {
 	client      HTTPClient
-	urls        [1]string
+	urls        [2]string
 	interceptor twirp.Interceptor
 	opts        twirp.ClientOptions
 }
@@ -162,8 +211,9 @@ func NewPingJSONClient(baseURL string, client HTTPClient, opts ...twirp.ClientOp
 	// Build method URLs: <baseURL>[<prefix>]/<package>.<Service>/<Method>
 	serviceURL := sanitizeBaseURL(baseURL)
 	serviceURL += baseServicePath(pathPrefix, "ping", "Ping")
-	urls := [1]string{
+	urls := [2]string{
 		serviceURL + "Echo",
+		serviceURL + "Boom",
 	}
 
 	return &pingJSONClient{
@@ -206,6 +256,52 @@ func (c *pingJSONClient) Echo(ctx context.Context, in *EchoRequest) (*EchoRespon
 func (c *pingJSONClient) callEcho(ctx context.Context, in *EchoRequest) (*EchoResponse, error) {
 	out := new(EchoResponse)
 	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[0], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *pingJSONClient) Boom(ctx context.Context, in *BoomRequest) (*BoomResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "ping")
+	ctx = ctxsetters.WithServiceName(ctx, "Ping")
+	ctx = ctxsetters.WithMethodName(ctx, "Boom")
+	caller := c.callBoom
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *BoomRequest) (*BoomResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*BoomRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*BoomRequest) when calling interceptor")
+					}
+					return c.callBoom(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*BoomResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*BoomResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *pingJSONClient) callBoom(ctx context.Context, in *BoomRequest) (*BoomResponse, error) {
+	out := new(BoomResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -319,6 +415,9 @@ func (s *pingServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	switch method {
 	case "Echo":
 		s.serveEcho(ctx, resp, req)
+		return
+	case "Boom":
+		s.serveBoom(ctx, resp, req)
 		return
 	default:
 		msg := fmt.Sprintf("no handler for path %q", req.URL.Path)
@@ -484,6 +583,186 @@ func (s *pingServer) serveEchoProtobuf(ctx context.Context, resp http.ResponseWr
 	}
 	if respContent == nil {
 		s.writeError(ctx, resp, twirp.InternalError("received a nil *EchoResponse and nil error while calling Echo. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *pingServer) serveBoom(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveBoomJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveBoomProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *pingServer) serveBoomJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "Boom")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(BoomRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Ping.Boom
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *BoomRequest) (*BoomResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*BoomRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*BoomRequest) when calling interceptor")
+					}
+					return s.Ping.Boom(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*BoomResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*BoomResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *BoomResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *BoomResponse and nil error while calling Boom. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *pingServer) serveBoomProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "Boom")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(BoomRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Ping.Boom
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *BoomRequest) (*BoomResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*BoomRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*BoomRequest) when calling interceptor")
+					}
+					return s.Ping.Boom(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*BoomResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*BoomResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *BoomResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *BoomResponse and nil error while calling Boom. nil responses are not supported"))
 		return
 	}
 
@@ -1091,16 +1370,18 @@ func callClientError(ctx context.Context, h *twirp.ClientHooks, err twirp.Error)
 }
 
 var twirpFileDescriptor0 = []byte{
-	// 165 bytes of a gzipped FileDescriptorProto
+	// 197 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x2d, 0x28, 0xca, 0x2f,
-	0xc9, 0xd7, 0x2f, 0xc8, 0xcc, 0x4b, 0x07, 0x13, 0x7a, 0x60, 0xbe, 0x10, 0x0b, 0x88, 0xad, 0x24,
-	0xcf, 0xc5, 0xed, 0x9a, 0x9c, 0x91, 0x1f, 0x94, 0x5a, 0x58, 0x9a, 0x5a, 0x5c, 0x22, 0x24, 0xc0,
-	0xc5, 0x9c, 0x5b, 0x9c, 0x2e, 0xc1, 0xa8, 0xc0, 0xa8, 0xc1, 0x19, 0x04, 0x62, 0x2a, 0x29, 0x70,
-	0xf1, 0x40, 0x14, 0x14, 0x17, 0xe4, 0xe7, 0x15, 0xa7, 0x62, 0xaa, 0x30, 0x32, 0xe5, 0x62, 0x09,
-	0xc8, 0xcc, 0x4b, 0x17, 0xd2, 0xe5, 0x62, 0x01, 0xa9, 0x14, 0x12, 0xd4, 0x03, 0xdb, 0x82, 0x64,
-	0xac, 0x94, 0x10, 0xb2, 0x10, 0xc4, 0x20, 0x27, 0x9d, 0x28, 0xad, 0xf4, 0xcc, 0x92, 0x8c, 0xd2,
-	0x24, 0xbd, 0xe4, 0xfc, 0x5c, 0xfd, 0xe4, 0xf4, 0x44, 0x43, 0x43, 0x23, 0x63, 0xfd, 0xe2, 0x9c,
-	0xd2, 0xf4, 0xe4, 0xdc, 0x82, 0x9c, 0x22, 0xfd, 0xe2, 0xd4, 0xa2, 0xb2, 0xcc, 0xe4, 0xd4, 0x62,
-	0xb0, 0x9b, 0x93, 0xd8, 0xc0, 0x8e, 0x36, 0x06, 0x04, 0x00, 0x00, 0xff, 0xff, 0xfe, 0x7a, 0x1e,
-	0x92, 0xcd, 0x00, 0x00, 0x00,
+	0xc9, 0xd7, 0x2f, 0xc8, 0xcc, 0x4b, 0x07, 0x13, 0x7a, 0x60, 0xbe, 0x10, 0x0b, 0x88, 0xad, 0xc4,
+	0xcb, 0xc5, 0xed, 0x94, 0x9f, 0x9f, 0x1b, 0x94, 0x5a, 0x58, 0x9a, 0x5a, 0x5c, 0xa2, 0xc4, 0xc7,
+	0xc5, 0x03, 0xe1, 0x16, 0x17, 0xe4, 0xe7, 0x15, 0xa7, 0x2a, 0xc9, 0x73, 0x71, 0xbb, 0x26, 0x67,
+	0xe4, 0x43, 0xa5, 0x85, 0x04, 0xb8, 0x98, 0x73, 0x8b, 0xd3, 0x25, 0x18, 0x15, 0x18, 0x35, 0x38,
+	0x83, 0x40, 0x4c, 0x25, 0x05, 0x2e, 0x1e, 0x88, 0x02, 0x88, 0x06, 0x4c, 0x15, 0x46, 0x29, 0x5c,
+	0x2c, 0x01, 0x99, 0x79, 0xe9, 0x42, 0xba, 0x5c, 0x2c, 0x20, 0x95, 0x42, 0x82, 0x7a, 0x60, 0x47,
+	0x20, 0x19, 0x2b, 0x25, 0x84, 0x2c, 0x04, 0x35, 0x48, 0x97, 0x8b, 0x05, 0xe4, 0x12, 0x98, 0x72,
+	0x24, 0x47, 0xc2, 0x94, 0x23, 0x3b, 0xd4, 0x49, 0x27, 0x4a, 0x2b, 0x3d, 0xb3, 0x24, 0xa3, 0x34,
+	0x49, 0x2f, 0x39, 0x3f, 0x57, 0x3f, 0x39, 0x3d, 0xd1, 0xd0, 0xd0, 0xc8, 0x58, 0xbf, 0x38, 0xa7,
+	0x34, 0x3d, 0x39, 0xb7, 0x20, 0xa7, 0x48, 0xbf, 0x38, 0xb5, 0xa8, 0x2c, 0x33, 0x39, 0xb5, 0x18,
+	0x1c, 0x02, 0x49, 0x6c, 0xe0, 0x20, 0x30, 0x06, 0x04, 0x00, 0x00, 0xff, 0xff, 0x7e, 0x58, 0xc9,
+	0xb9, 0x1b, 0x01, 0x00, 0x00,
 }
