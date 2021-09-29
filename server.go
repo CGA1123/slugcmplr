@@ -13,6 +13,7 @@ import (
 	"github.com/cga1123/slugcmplr/services/pingsvc"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 )
 
 const (
@@ -76,6 +77,7 @@ func timeoutHandler(t time.Duration) func(http.Handler) http.Handler {
 func runServer(ctx context.Context, out Outputter, port string, r *mux.Router) error {
 	r.Use(
 		loggingHandler(out.OutOrStdout()),
+		otelmux.Middleware("slugcmplr-http"),
 	)
 
 	// Default Handler 404s
