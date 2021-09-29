@@ -16,7 +16,7 @@ require (
 	github.com/spf13/cobra v1.2.1
 	github.com/stretchr/testify v1.7.1-0.20210427113832-6241f9ab9942
 	github.com/twitchtv/twirp v8.1.0+incompatible
-	google.golang.org/protobuf v1.26.0
+	google.golang.org/protobuf v1.27.1
 )
 
 require (
