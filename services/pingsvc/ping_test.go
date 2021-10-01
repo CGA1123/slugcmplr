@@ -3,30 +3,44 @@ package pingsvc_test
 import (
 	"context"
 	"errors"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/cga1123/slugcmplr/proto/ping"
 	"github.com/cga1123/slugcmplr/services/pingsvc"
 	"github.com/cga1123/slugcmplr/store"
+	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/twitchtv/twirp"
 )
 
+func client(s store.Querier) (ping.Ping, func()) {
+	m := mux.NewRouter()
+	pingsvc.Route(m, s)
+
+	server := httptest.NewServer(m)
+	c := ping.NewPingJSONClient(server.URL, server.Client())
+
+	return c, server.Close
+}
+
 func Test_Echo(t *testing.T) {
 	t.Parallel()
 
-	svc := pingsvc.New(&store.Memory{})
+	svc, closer := client(&store.Memory{})
+	defer closer()
 
 	response, err := svc.Echo(context.Background(), &ping.EchoRequest{Msg: "hello"})
 
 	assert.NoError(t, err, "Echo should not error.")
-	assert.Equal(t, &ping.EchoResponse{Msg: "hello"}, response, "Response to echo request.")
+	assert.Equal(t, "hello", response.Msg, "Response to echo request.")
 }
 
 func Test_Boom(t *testing.T) {
 	t.Parallel()
 
-	svc := pingsvc.New(&store.Memory{})
+	svc, closer := client(&store.Memory{})
+	defer closer()
 
 	_, err := svc.Boom(context.Background(), &ping.BoomRequest{})
 
@@ -42,13 +56,13 @@ func Test_DatabaseHealth(t *testing.T) { // nolint:paralleltest
 		s := &store.Memory{}
 		s.HealthErr = tc.err
 
-		svc := pingsvc.New(s)
+		svc, closer := client(s)
+		defer closer()
 
-		res, err := svc.DatabaseHealth(context.Background(), &ping.DatabaseHealthRequest{})
+		_, err := svc.DatabaseHealth(context.Background(), &ping.DatabaseHealthRequest{})
 
 		if tc.err == nil {
 			assert.NoError(t, err, "DatabaseHealth should not return an error.")
-			assert.Equal(t, &ping.DatabaseHealthResponse{}, res, "DatabaseHealth should return an appropriate response.")
 		} else {
 			assert.Error(t, err, "DatabaseHealth should return an error.")
 		}

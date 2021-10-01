@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package ping;
 
-option go_package = "github.com/cga1123/slugcmplr/services/ping";
+option go_package = "github.com/cga1123/slugcmplr/proto/ping";
 
 service Ping {
   rpc Echo(EchoRequest) returns (EchoResponse);

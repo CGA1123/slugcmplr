@@ -10,6 +10,8 @@ require (
 	github.com/bmatcuk/doublestar/v4 v4.0.2
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/golang-migrate/migrate/v4 v4.15.0
+	github.com/google/go-github/v39 v39.1.0
+	github.com/google/uuid v1.3.0
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
 	github.com/heroku/heroku-go/v5 v5.3.0
@@ -80,7 +82,6 @@ require (
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/go-github/v35 v35.2.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.0.5 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
