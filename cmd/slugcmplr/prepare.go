@@ -9,6 +9,7 @@ import (
 
 	"github.com/cga1123/slugcmplr"
 	"github.com/spf13/cobra"
+	"go.opentelemetry.io/otel"
 )
 
 func writeMetadata(m *slugcmplr.MetadataResult, pr *slugcmplr.PrepareResult) error {
@@ -74,6 +75,7 @@ func prepareCmd(verbose bool) *cobra.Command {
 				Application: application,
 				SourceDir:   srcDir,
 				BuildDir:    buildDir,
+				Tracer:      otel.Tracer("github.com/CGA1123/slugcmplr/cmd"),
 			}).Execute(ctx, output)
 			if err != nil {
 				return fmt.Errorf("error fetching app metadata: %w", err)
@@ -89,6 +91,7 @@ func prepareCmd(verbose bool) *cobra.Command {
 				BuildDir:   buildDir,
 				ConfigVars: m.ConfigVars,
 				Buildpacks: m.Buildpacks,
+				Tracer:     otel.Tracer("github.com/CGA1123/slugcmplr/cmd"),
 			}).Execute(ctx, output)
 			if err != nil {
 				return fmt.Errorf("error preparing application: %w", err)

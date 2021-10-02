@@ -12,6 +12,7 @@ import (
 	"github.com/cga1123/slugcmplr/buildpack"
 	heroku "github.com/heroku/heroku-go/v5"
 	"github.com/spf13/cobra"
+	"go.opentelemetry.io/otel"
 )
 
 const defaultImage = "ghcr.io/cga1123/slugcmplr:" + slugcmplr.StackReplacePattern
@@ -35,6 +36,7 @@ func compile(ctx context.Context, out outputter, h *heroku.Service, c *Compile, 
 		Stack:         c.Stack,
 		SourceVersion: c.SourceVersion,
 		Buildpacks:    c.Buildpacks,
+		Tracer:        otel.Tracer("github.com/CGA1123/slugcmplr/cmd"),
 	}
 
 	result, err := compileCmd.Execute(ctx, out)

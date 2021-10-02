@@ -14,6 +14,7 @@ import (
 	"github.com/cga1123/slugcmplr"
 	git "github.com/go-git/go-git/v5"
 	heroku "github.com/heroku/heroku-go/v5"
+	"go.opentelemetry.io/otel"
 )
 
 func sliceEqual(a, b interface{}, eq func(i int) bool) bool {
@@ -246,6 +247,7 @@ func withStubPrepare(t *testing.T, fixture string, buildpacks []*slugcmplr.Build
 		BuildDir:   builddir,
 		ConfigVars: m.ConfigVars,
 		Buildpacks: m.Buildpacks,
+		Tracer:     otel.Tracer("github.com/slugcmlr/test"),
 	}
 
 	pr, err := p.Execute(context.Background(), &stdOutputter{})
