@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cga1123/slugcmplr/obs"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // Build creates a new *Queries using the connection string provided.
+// TODO: should this take a connection pool rather than a connstring? Enable
+// sharing pools across multiple store interfaces?
 func Build(connstr string) (*Queries, error) {
 	config, err := pgxpool.ParseConfig(connstr)
 	if err != nil {
@@ -22,5 +25,5 @@ func Build(connstr string) (*Queries, error) {
 		return nil, fmt.Errorf("error creating db connection pool: %w", err)
 	}
 
-	return New(NewObsQueries(pool)), nil
+	return New(obs.NewDB(pool)), nil
 }

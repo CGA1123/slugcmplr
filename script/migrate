@@ -1,3 +1,6 @@
 #!/bin/bash
 
-migrate create -dir ./store/migrations -ext sql "$@"
+DATABASE_NAME=${DATABASE_NAME:-"slugcmplr_development"}
+DATABASE_URL=${DATABASE_URL:-"postgres://localhost:5432/${DATABASE_NAME}?sslmode=disable"}
+
+migrate -path ./migrations -database ${DATABASE_URL} ${1}

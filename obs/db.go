@@ -1,4 +1,4 @@
-package store
+package obs
 
 import (
 	"context"
@@ -12,32 +12,39 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var _ DBTX = (*ObsQueries)(nil)
+// DBTX describes the database.
+type DBTX interface {
+	Exec(context.Context, string, ...interface{}) (pgconn.CommandTag, error)
+	Query(context.Context, string, ...interface{}) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...interface{}) pgx.Row
+}
 
-// ObsQueries implements the DBTX interface with opentelemetry instrumentation.
-type ObsQueries struct {
+var _ DBTX = (*DB)(nil)
+
+// DB implements the DBTX interface with opentelemetry instrumentation.
+type DB struct {
 	db DBTX
 	t  trace.Tracer
 }
 
-// NewObsQueries builds a new DBTX with opentelemetry tracing.
-func NewObsQueries(db DBTX) *ObsQueries {
-	return &ObsQueries{
+// NewDB builds a new DBTX with opentelemetry tracing.
+func NewDB(db DBTX) *DB {
+	return &DB{
 		db: db,
 		t:  otel.Tracer("github.com/CGA1123/slugcmplr/store"),
 	}
 }
 
-// WithTx builds a new ObsQueries using the given transaction connection.
-func (o *ObsQueries) WithTx(tx pgx.Tx) *ObsQueries {
-	return &ObsQueries{
+// WithTx builds a new DB using the given transaction connection.
+func (o *DB) WithTx(tx pgx.Tx) *DB {
+	return &DB{
 		db: tx,
 		t:  o.t,
 	}
 }
 
 // Exec instruments the underlying call to Exec.
-func (o *ObsQueries) Exec(ctx context.Context, q string, args ...interface{}) (pgconn.CommandTag, error) {
+func (o *DB) Exec(ctx context.Context, q string, args ...interface{}) (pgconn.CommandTag, error) {
 	cctx, span := o.buildSpan(ctx, "exec", q)
 	defer span.End()
 
@@ -48,7 +55,7 @@ func (o *ObsQueries) Exec(ctx context.Context, q string, args ...interface{}) (p
 }
 
 // Query instruments the underlying call to Query.
-func (o *ObsQueries) Query(ctx context.Context, q string, args ...interface{}) (pgx.Rows, error) {
+func (o *DB) Query(ctx context.Context, q string, args ...interface{}) (pgx.Rows, error) {
 	cctx, span := o.buildSpan(ctx, "query", q)
 	defer span.End()
 
@@ -59,14 +66,14 @@ func (o *ObsQueries) Query(ctx context.Context, q string, args ...interface{}) (
 }
 
 // QueryRow instruments the underlying call to QueryRow.
-func (o *ObsQueries) QueryRow(ctx context.Context, q string, args ...interface{}) pgx.Row {
+func (o *DB) QueryRow(ctx context.Context, q string, args ...interface{}) pgx.Row {
 	cctx, span := o.buildSpan(ctx, "query_row", q)
 	defer span.End()
 
 	return o.db.QueryRow(cctx, q, args...)
 }
 
-func (o *ObsQueries) buildSpan(ctx context.Context, operation, query string) (context.Context, trace.Span) {
+func (o *DB) buildSpan(ctx context.Context, operation, query string) (context.Context, trace.Span) {
 	name := queryName(query)
 	cctx, span := o.t.Start(ctx, name,
 		trace.WithSpanKind(trace.SpanKindInternal),
