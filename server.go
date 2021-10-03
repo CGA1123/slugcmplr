@@ -2,7 +2,6 @@ package slugcmplr
 
 import (
 	"context"
-	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -10,15 +9,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cga1123/slugcmplr/proto/ping"
 	"github.com/cga1123/slugcmplr/services/pingsvc"
+	"github.com/cga1123/slugcmplr/services/webhooksvc"
 	"github.com/cga1123/slugcmplr/store"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/twitchtv/twirp"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 	"go.opentelemetry.io/otel/attribute"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -40,6 +37,9 @@ type ServerCmd struct {
 
 	// Store provides an interface to a persistent data-store
 	Store store.Querier
+
+	// WebhookSecret is used to validate incoming webhook request signatures.
+	WebhookSecret []byte
 }
 
 // Execute starts a slugcmplr server, blocking untile a SIGTERM/SIGINT is
@@ -56,49 +56,10 @@ func (s *ServerCmd) Router() *mux.Router {
 		http.Redirect(w, r, "https://imgs.xkcd.com/comics/compiling.png", http.StatusFound)
 	})
 
-	pingsvc := ping.NewPingServer(pingsvc.New(s.Store), twirp.WithServerInterceptors(twirpObs()))
-	r.PathPrefix(ping.PingPathPrefix).Handler(pingsvc)
+	pingsvc.Route(r, s.Store)
+	webhooksvc.Route(r, s.WebhookSecret)
 
 	return r
-}
-
-func twirpObs() twirp.Interceptor {
-	return func(n twirp.Method) twirp.Method {
-		return func(ctx context.Context, req interface{}) (interface{}, error) {
-			span := trace.SpanFromContext(ctx)
-
-			pkg, _ := twirp.PackageName(ctx)
-			svc, _ := twirp.ServiceName(ctx)
-			mtd, _ := twirp.MethodName(ctx)
-			fqn := pkg + "." + mtd + "/" + mtd
-
-			span.SetAttributes(
-				semconv.RPCSystemKey.String("twirp"),
-				semconv.RPCServiceKey.String(svc),
-				semconv.RPCMethodKey.String(mtd),
-				attribute.String("rpc.package", pkg),
-				attribute.String("rpc.fqn", fqn),
-			)
-
-			res, err := n(ctx, req)
-			if err != nil {
-				var terr twirp.Error
-				if errors.As(err, &terr) {
-					span.SetAttributes(
-						attribute.String("rpc.error_code", string(terr.Code())),
-						attribute.String("rpc.error_message", terr.Msg()),
-					)
-				} else {
-					span.SetAttributes(
-						attribute.String("rpc.error_code", "other"),
-						attribute.String("rpc.error_message", err.Error()),
-					)
-				}
-			}
-
-			return res, err
-		}
-	}
 }
 
 // nolint:unused

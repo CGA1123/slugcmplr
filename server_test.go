@@ -8,6 +8,7 @@ import (
 	"github.com/cga1123/slugcmplr"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func testHandler(router *mux.Router, r *http.Request) *httptest.ResponseRecorder {
@@ -23,7 +24,7 @@ func TestServer_Root(t *testing.T) {
 
 	s := &slugcmplr.ServerCmd{Environment: "test"}
 	req, err := http.NewRequest("GET", "/", nil)
-	assert.NoError(t, err, "Request should be built successfully")
+	require.NoError(t, err, "Request should be built successfully")
 
 	res := testHandler(s.Router(), req).Result()
 	defer res.Body.Close() // nolint:errcheck
@@ -37,7 +38,7 @@ func TestServer_BadPath(t *testing.T) {
 
 	s := &slugcmplr.ServerCmd{Environment: "test"}
 	req, err := http.NewRequest("GET", "/not-a-reasonable-path", nil)
-	assert.NoError(t, err, "Request should be built successfully")
+	require.NoError(t, err, "Request should be built successfully")
 
 	res := testHandler(s.Router(), req).Result()
 	defer res.Body.Close() // nolint:errcheck

@@ -34,6 +34,7 @@ func serverCmd(verbose bool) *cobra.Command {
 				"PORT",
 				"SLUGCMPLR_ENV",
 				"DATABASE_URL",
+				"SLUGCMPLR_WEBHOOK_SECRET",
 			)
 			if err != nil {
 				return fmt.Errorf("error fetching environment: %w", err)
@@ -52,9 +53,10 @@ func serverCmd(verbose bool) *cobra.Command {
 			}
 
 			s := &slugcmplr.ServerCmd{
-				Port:        env["PORT"],
-				Environment: env["SLUGCMPLR_ENV"],
-				Store:       querier,
+				Port:          env["PORT"],
+				Environment:   env["SLUGCMPLR_ENV"],
+				Store:         querier,
+				WebhookSecret: []byte(env["SLUGCMPLR_WEBHOOK_SECRET"]),
 			}
 
 			return s.Execute(cmd.Context(), output)
