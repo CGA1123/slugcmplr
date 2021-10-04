@@ -61,7 +61,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.1.1 // indirect
 	github.com/cloudflare/golz4 v0.0.0-20150217214814-ef862a3cdc58 // indirect
 	github.com/cockroachdb/cockroach-go/v2 v2.1.1 // indirect
-	github.com/containerd/containerd v1.5.6 // indirect
+	github.com/containerd/containerd v1.5.7 // indirect
 	github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/denisenkom/go-mssqldb v0.10.0 // indirect
@@ -160,7 +160,7 @@ require (
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/api v0.51.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20210929214142-896c89f843d2 // indirect
+	google.golang.org/genproto v0.0.0-20211001223012-bfb93cce50d9 // indirect
 	google.golang.org/grpc v1.41.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
