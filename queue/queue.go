@@ -9,6 +9,10 @@ import (
 	"github.com/cga1123/slugcmplr/queue/store"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // BackoffFunc computes the backoff for a retry given the current attempt number.
@@ -100,6 +104,7 @@ type Queue struct {
 	db       *pgxpool.Pool
 	enqStore store.Querier
 	fn       Worker
+	tracer   trace.Tracer
 }
 
 // New creates a new Queue.
@@ -109,28 +114,57 @@ func New(db *pgxpool.Pool, queue string, worker Worker) *Queue {
 		db:       db,
 		enqStore: store.New(obs.NewDB(db)),
 		fn:       worker,
+		tracer:   otel.Tracer("github.com/CGA1123/slugcmplr/queue"),
 	}
 }
 
 // Enq enqueues a single job to the queue.
 func (q *Queue) Enq(ctx context.Context, data []byte, opts ...JobOptions) (uuid.UUID, error) {
+	ctx, span := q.tracer.Start(ctx, "enqueue",
+		trace.WithSpanKind(trace.SpanKindProducer),
+		trace.WithAttributes(
+			attribute.String("job.queue", q.name),
+			attribute.Int("job.payload_size", len(data)),
+		),
+	)
+	defer span.End()
+
+	now := time.Now()
 	params := store.EnqueueParams{
 		QueueName:   q.name,
 		Data:        data,
-		ScheduledAt: time.Now(),
+		ScheduledAt: now,
 		Attempt:     0}
-
 	for _, opt := range opts {
 		opt(&params)
 	}
 
-	return q.enqStore.Enqueue(ctx, params)
+	jid, err := q.enqStore.Enqueue(ctx, params)
+	span.SetAttributes(
+		attribute.Int("job.attempt", int(params.Attempt)),
+		attribute.Int64("job.delay_ms", int64(params.ScheduledAt.Sub(now)/time.Millisecond)),
+		attribute.String("job.id", jid.String()),
+	)
+	if err != nil {
+		span.SetStatus(codes.Error, fmt.Sprintf("error enqueueing: %v", err))
+	} else {
+		span.SetStatus(codes.Ok, "")
+	}
+
+	return jid, err
 }
 
 // Deq dequeues a single job for the queue. The worker may retry based on it's
 // settings, if retries become exhausted, the job will be moved to the dead
 // letter queue.
 func (q *Queue) Deq(ctx context.Context) error {
+	ctx, span := q.tracer.Start(ctx, "dequeue",
+		trace.WithSpanKind(trace.SpanKindConsumer),
+		trace.WithAttributes(
+			attribute.String("job.queue", q.name),
+		))
+	defer span.End()
+
 	tx, err := q.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -143,7 +177,16 @@ func (q *Queue) Deq(ctx context.Context) error {
 		return fmt.Errorf("failed to dequeue a job: %w", err)
 	}
 
+	span.SetAttributes(
+		attribute.String("job.id", j.ID.String()),
+		attribute.Int64("job.delay_ms", int64(time.Now().Sub(j.ScheduledAt)/time.Millisecond)),
+		attribute.Int("job.attempt", int(j.Attempt)),
+		attribute.Int("job.payload_size", len(j.Data)),
+	)
+
 	if err := q.fn.Do(ctx, j); err != nil {
+		span.SetStatus(codes.Error, fmt.Sprintf("error processing job: %v", err))
+
 		retry, backoff := q.fn.Retryable(j, err)
 
 		if retry {
@@ -153,18 +196,26 @@ func (q *Queue) Deq(ctx context.Context) error {
 				ScheduledAt: time.Now().Add(backoff),
 				Attempt:     j.Attempt + 1}
 			if _, err := s.Enqueue(ctx, nj); err != nil {
+				span.SetStatus(codes.Error, fmt.Sprintf("error enqueueing retry: %v", err))
+
 				return fmt.Errorf("failed to re-enqueue job: %w", err)
 			}
 		} else {
 			if err := s.DeadLetter(ctx, store.DeadLetterParams(j)); err != nil {
+				span.SetStatus(codes.Error, fmt.Sprintf("error moving to deadletter: %v", err))
+
 				return fmt.Errorf("failed to dead-letter job: %w", err)
 			}
 		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
+		span.SetStatus(codes.Error, fmt.Sprintf("error commiting processed job: %v", err))
+
 		return fmt.Errorf("failed to commit to database: %w", err)
 	}
+
+	span.SetStatus(codes.Ok, "")
 
 	return nil
 }
