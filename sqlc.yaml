@@ -3,7 +3,14 @@ packages:
   - name: "store"
     path: "./store"
     queries: "./store/queries"
-    schema: "./store/migrations"
+    schema: "./migrations"
+    engine: "postgresql"
+    emit_interface: true
+    sql_package: "pgx/v4"
+  - name: "store"
+    path: "./queue/store"
+    queries: "./queue/store/queries"
+    schema: "./migrations"
     engine: "postgresql"
     emit_interface: true
     sql_package: "pgx/v4"
