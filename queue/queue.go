@@ -179,7 +179,7 @@ func (q *Queue) Deq(ctx context.Context) error {
 
 	span.SetAttributes(
 		attribute.String("job.id", j.ID.String()),
-		attribute.Int64("job.delay_ms", int64(time.Now().Sub(j.ScheduledAt)/time.Millisecond)),
+		attribute.Int64("job.delay_ms", int64(time.Since(j.ScheduledAt)/time.Millisecond)),
 		attribute.Int("job.attempt", int(j.Attempt)),
 		attribute.Int("job.payload_size", len(j.Data)),
 	)
@@ -210,7 +210,7 @@ func (q *Queue) Deq(ctx context.Context) error {
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		span.SetStatus(codes.Error, fmt.Sprintf("error commiting processed job: %v", err))
+		span.SetStatus(codes.Error, fmt.Sprintf("error committing processed job: %v", err))
 
 		return fmt.Errorf("failed to commit to database: %w", err)
 	}
