@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/cga1123/slugcmplr/proto/ping"
+	"github.com/cga1123/slugcmplr/queue"
 	"github.com/cga1123/slugcmplr/services"
 	"github.com/cga1123/slugcmplr/store"
 	"github.com/gorilla/mux"
@@ -15,17 +16,18 @@ var _ ping.Ping = (*service)(nil)
 // service implements the Ping service.
 type service struct {
 	store store.Querier
+	queue queue.Enqueuer
 }
 
 // Route registers the twirp pingsvc onto the given router.
-func Route(m *mux.Router, store store.Querier) {
-	svc := ping.NewPingServer(build(store), twirp.WithServerInterceptors(services.TwirpOtelInterceptor()))
+func Route(m *mux.Router, store store.Querier, enq queue.Enqueuer) {
+	svc := ping.NewPingServer(build(store, enq), twirp.WithServerInterceptors(services.TwirpOtelInterceptor()))
 
 	m.PathPrefix(ping.PingPathPrefix).Handler(svc)
 }
 
-func build(store store.Querier) ping.Ping {
-	return &service{store: store}
+func build(store store.Querier, queue queue.Enqueuer) ping.Ping {
+	return &service{store: store, queue: queue}
 }
 
 // Echo echoes its given message.
@@ -45,4 +47,13 @@ func (s *service) DatabaseHealth(ctx context.Context, _ *ping.DatabaseHealthRequ
 	}
 
 	return &ping.DatabaseHealthResponse{}, nil
+}
+
+func (s *service) Queue(ctx context.Context, r *ping.QueueRequest) (*ping.QueueResponse, error) {
+	id, err := s.queue.Enq(ctx, "ping_queue", []byte(r.Msg))
+	if err != nil {
+		return nil, twirp.InternalErrorWith(err)
+	}
+
+	return &ping.QueueResponse{Jid: id.String()}, nil
 }
