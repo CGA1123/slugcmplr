@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -123,8 +124,9 @@ func (q *Queue) Enq(ctx context.Context, data []byte, opts ...JobOptions) (uuid.
 	ctx, span := q.tracer.Start(ctx, "enqueue",
 		trace.WithSpanKind(trace.SpanKindProducer),
 		trace.WithAttributes(
-			attribute.String("job.queue", q.name),
-			attribute.Int("job.payload_size", len(data)),
+			semconv.MessagingSystemKey.String("postgres"),
+			semconv.MessagingDestinationKey.String(q.name),
+			semconv.MessagingDestinationKindQueue,
 		),
 	)
 	defer span.End()
@@ -141,9 +143,10 @@ func (q *Queue) Enq(ctx context.Context, data []byte, opts ...JobOptions) (uuid.
 
 	jid, err := q.enqStore.Enqueue(ctx, params)
 	span.SetAttributes(
-		attribute.Int("job.attempt", int(params.Attempt)),
-		attribute.Int64("job.delay_ms", int64(params.ScheduledAt.Sub(now)/time.Millisecond)),
-		attribute.String("job.id", jid.String()),
+		semconv.MessagingMessageIDKey.String(jid.String()),
+		semconv.MessagingMessagePayloadSizeBytesKey.Int(len(params.Data)),
+		attribute.Int64("messaging.delay_ms", int64(params.ScheduledAt.Sub(now)/time.Millisecond)),
+		attribute.Int("messaging.delivery_attempt", int(params.Attempt)),
 	)
 	if err != nil {
 		span.SetStatus(codes.Error, fmt.Sprintf("error enqueueing: %v", err))
@@ -161,7 +164,9 @@ func (q *Queue) Deq(ctx context.Context) error {
 	ctx, span := q.tracer.Start(ctx, "dequeue",
 		trace.WithSpanKind(trace.SpanKindConsumer),
 		trace.WithAttributes(
-			attribute.String("job.queue", q.name),
+			semconv.MessagingSystemKey.String("postgres"),
+			semconv.MessagingDestinationKey.String(q.name),
+			semconv.MessagingDestinationKindQueue,
 		))
 	defer span.End()
 
@@ -178,10 +183,10 @@ func (q *Queue) Deq(ctx context.Context) error {
 	}
 
 	span.SetAttributes(
-		attribute.String("job.id", j.ID.String()),
-		attribute.Int64("job.delay_ms", int64(time.Since(j.ScheduledAt)/time.Millisecond)),
-		attribute.Int("job.attempt", int(j.Attempt)),
-		attribute.Int("job.payload_size", len(j.Data)),
+		semconv.MessagingMessageIDKey.String(j.ID.String()),
+		semconv.MessagingMessagePayloadSizeBytesKey.Int(len(j.Data)),
+		attribute.Int64("messaging.delay_ms", int64(time.Since(j.ScheduledAt)/time.Millisecond)),
+		attribute.Int("messaging.delivery_attempt", int(j.Attempt)),
 	)
 
 	if err := q.fn.Do(ctx, j); err != nil {
