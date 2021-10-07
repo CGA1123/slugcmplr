@@ -72,11 +72,11 @@ func Test_Boom(t *testing.T) {
 func Test_DatabaseHealth(t *testing.T) { // nolint:paralleltest
 	cases := []struct{ err error }{{err: nil}, {err: errors.New("test error")}}
 	for _, tc := range cases {
+		q := make(memqueue, 0)
 		s := &store.Memory{}
 		s.HealthErr = tc.err
 
-		q := make(memqueue, 0)
-		svc, closer := client(&store.Memory{}, &q)
+		svc, closer := client(s, &q)
 		defer closer()
 
 		_, err := svc.DatabaseHealth(context.Background(), &ping.DatabaseHealthRequest{})
