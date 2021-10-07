@@ -118,10 +118,8 @@ func ScheduledAt(t time.Time) JobOptions {
 
 // PGQueue contains the state required for the PG backed queue implementation.
 type PGQueue struct {
-	name     string
 	db       *pgxpool.Pool
 	enqStore store.Querier
-	fn       Worker
 	tracer   trace.Tracer
 }
 
@@ -140,7 +138,7 @@ func (q *PGQueue) Enq(ctx context.Context, queue string, data []byte, opts ...Jo
 		trace.WithSpanKind(trace.SpanKindProducer),
 		trace.WithAttributes(
 			semconv.MessagingSystemKey.String("postgres"),
-			semconv.MessagingDestinationKey.String(q.name),
+			semconv.MessagingDestinationKey.String(queue),
 			semconv.MessagingDestinationKindQueue,
 		),
 	)
@@ -192,7 +190,7 @@ func (q *PGQueue) Deq(ctx context.Context, queue string, worker Worker) error {
 	defer tx.Rollback(ctx) // nolint:errcheck
 
 	s := store.New(obs.NewDB(tx))
-	j, err := s.Dequeue(ctx, q.name)
+	j, err := s.Dequeue(ctx, queue)
 	if err != nil {
 		return fmt.Errorf("failed to dequeue a job: %w", err)
 	}
@@ -207,11 +205,11 @@ func (q *PGQueue) Deq(ctx context.Context, queue string, worker Worker) error {
 	if err := worker.Do(ctx, j); err != nil {
 		span.SetStatus(codes.Error, fmt.Sprintf("error processing job: %v", err))
 
-		retry, backoff := q.fn.Retryable(j, err)
+		retry, backoff := worker.Retryable(j, err)
 
 		if retry {
 			nj := store.EnqueueParams{
-				QueueName:   q.name,
+				QueueName:   j.QueueName,
 				Data:        j.Data,
 				ScheduledAt: time.Now().Add(backoff),
 				Attempt:     j.Attempt + 1}

@@ -24,7 +24,7 @@ type message struct {
 
 type memqueue []message
 
-func (m *memqueue) Enq(_ context.Context, q string, data []byte, opts ...queue.JobOptions) (uuid.UUID, error) {
+func (m *memqueue) Enq(_ context.Context, q string, data []byte, _ ...queue.JobOptions) (uuid.UUID, error) {
 	id := uuid.New()
 	*m = append(*m, message{q: q, d: data, id: id})
 

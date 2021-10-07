@@ -44,7 +44,7 @@ func Test_EnqDeq(t *testing.T) {
 	db := pool(t)
 
 	jobs := make([]string, 0, 3)
-	name := "test_queue"
+	name := "test_queue_enqdeq"
 	q := queue.New(db)
 	worker := queue.NoRetryWorker(func(_ context.Context, j store.QueuedJob) error {
 		jobs = append(jobs, string(j.Data))
@@ -80,11 +80,11 @@ func Test_Retries(t *testing.T) {
 	db := pool(t)
 
 	jobs := make([]string, 0, 3)
-	name := "test_queue"
+	name := "test_queue_retries"
 	q := queue.New(db)
 	worker := queue.RetryWorker(
 		2,
-		queue.ConstantBackoff(time.Duration(0)),
+		queue.ConstantBackoff(-time.Second),
 		func(_ context.Context, j store.QueuedJob) error {
 			jobs = append(jobs, string(j.Data))
 
@@ -116,14 +116,17 @@ func Test_DeadLetter(t *testing.T) {
 	defer func() {
 		_, err := db.Exec(context.Background(), "TRUNCATE dead_jobs")
 		require.NoError(t, err, "Truncating should succeed")
+
+		_, err = db.Exec(context.Background(), "TRUNCATE queued_jobs")
+		require.NoError(t, err, "Truncating should succeed")
 	}()
 
 	jobs := make([]string, 0, 3)
-	name := "test_queue"
+	name := "test_queue_dead_letter"
 	q := queue.New(db)
 	worker := queue.RetryWorker(
 		2,
-		queue.ConstantBackoff(time.Duration(0)),
+		queue.ConstantBackoff(-time.Second),
 		func(_ context.Context, j store.QueuedJob) error {
 			jobs = append(jobs, string(j.Data))
 
