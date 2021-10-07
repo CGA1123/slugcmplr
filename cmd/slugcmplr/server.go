@@ -6,7 +6,10 @@ import (
 	"os"
 
 	"github.com/cga1123/slugcmplr"
+	"github.com/cga1123/slugcmplr/obs"
+	"github.com/cga1123/slugcmplr/queue"
 	"github.com/cga1123/slugcmplr/store"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/spf13/cobra"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -46,16 +49,25 @@ func serverCmd(verbose bool) *cobra.Command {
 			}
 			defer closer()
 
-			// Handle this error in a sensible manner where possible
-			querier, err := store.Build(env["DATABASE_URL"])
+			config, err := pgxpool.ParseConfig(env["DATABASE_URL"])
 			if err != nil {
-				return err
+				return fmt.Errorf("error parsing connstr: %w", err)
+			}
+
+			// heroku-postgresql:hobby-dev only has 20 connections available.
+			config.MaxConns = 10
+			config.MinConns = 10
+
+			pool, err := pgxpool.ConnectConfig(context.Background(), config)
+			if err != nil {
+				return fmt.Errorf("error creating db connection pool: %w", err)
 			}
 
 			s := &slugcmplr.ServerCmd{
 				Port:          env["PORT"],
 				Environment:   env["SLUGCMPLR_ENV"],
-				Store:         querier,
+				Store:         store.New(obs.NewDB(pool)),
+				Enqueuer:      queue.New(pool),
 				WebhookSecret: []byte(env["SLUGCMPLR_WEBHOOK_SECRET"]),
 			}
 

@@ -16,6 +16,23 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// Enqueuer describes the interface for enqueueing a job to a queue.
+type Enqueuer interface {
+	Enq(context.Context, string, []byte, ...JobOptions) (uuid.UUID, error)
+}
+
+// Dequeuer describes the interface for dequeueing a job from a queue.
+type Dequeuer interface {
+	Deq(context.Context, string, Worker) error
+}
+
+// Queue describes the interface for a queue, combining an Enqueuer and
+// Dequeuer.
+type Queue interface {
+	Enqueuer
+	Dequeuer
+}
+
 // BackoffFunc computes the backoff for a retry given the current attempt number.
 type BackoffFunc func(int) time.Duration
 
@@ -99,33 +116,29 @@ func ScheduledAt(t time.Time) JobOptions {
 	}
 }
 
-// Queue contains the state required for the PG backed queue implementation.
-type Queue struct {
-	name     string
+// PGQueue contains the state required for the PG backed queue implementation.
+type PGQueue struct {
 	db       *pgxpool.Pool
 	enqStore store.Querier
-	fn       Worker
 	tracer   trace.Tracer
 }
 
 // New creates a new Queue.
-func New(db *pgxpool.Pool, queue string, worker Worker) *Queue {
-	return &Queue{
-		name:     queue,
+func New(db *pgxpool.Pool) *PGQueue {
+	return &PGQueue{
 		db:       db,
 		enqStore: store.New(obs.NewDB(db)),
-		fn:       worker,
 		tracer:   otel.Tracer("github.com/CGA1123/slugcmplr/queue"),
 	}
 }
 
 // Enq enqueues a single job to the queue.
-func (q *Queue) Enq(ctx context.Context, data []byte, opts ...JobOptions) (uuid.UUID, error) {
+func (q *PGQueue) Enq(ctx context.Context, queue string, data []byte, opts ...JobOptions) (uuid.UUID, error) {
 	ctx, span := q.tracer.Start(ctx, "enqueue",
 		trace.WithSpanKind(trace.SpanKindProducer),
 		trace.WithAttributes(
 			semconv.MessagingSystemKey.String("postgres"),
-			semconv.MessagingDestinationKey.String(q.name),
+			semconv.MessagingDestinationKey.String(queue),
 			semconv.MessagingDestinationKindQueue,
 		),
 	)
@@ -133,7 +146,7 @@ func (q *Queue) Enq(ctx context.Context, data []byte, opts ...JobOptions) (uuid.
 
 	now := time.Now()
 	params := store.EnqueueParams{
-		QueueName:   q.name,
+		QueueName:   queue,
 		Data:        data,
 		ScheduledAt: now,
 		Attempt:     0}
@@ -160,12 +173,12 @@ func (q *Queue) Enq(ctx context.Context, data []byte, opts ...JobOptions) (uuid.
 // Deq dequeues a single job for the queue. The worker may retry based on it's
 // settings, if retries become exhausted, the job will be moved to the dead
 // letter queue.
-func (q *Queue) Deq(ctx context.Context) error {
+func (q *PGQueue) Deq(ctx context.Context, queue string, worker Worker) error {
 	ctx, span := q.tracer.Start(ctx, "dequeue",
 		trace.WithSpanKind(trace.SpanKindConsumer),
 		trace.WithAttributes(
 			semconv.MessagingSystemKey.String("postgres"),
-			semconv.MessagingDestinationKey.String(q.name),
+			semconv.MessagingDestinationKey.String(queue),
 			semconv.MessagingDestinationKindQueue,
 		))
 	defer span.End()
@@ -177,7 +190,7 @@ func (q *Queue) Deq(ctx context.Context) error {
 	defer tx.Rollback(ctx) // nolint:errcheck
 
 	s := store.New(obs.NewDB(tx))
-	j, err := s.Dequeue(ctx, q.name)
+	j, err := s.Dequeue(ctx, queue)
 	if err != nil {
 		return fmt.Errorf("failed to dequeue a job: %w", err)
 	}
@@ -189,14 +202,14 @@ func (q *Queue) Deq(ctx context.Context) error {
 		attribute.Int("messaging.delivery_attempt", int(j.Attempt)),
 	)
 
-	if err := q.fn.Do(ctx, j); err != nil {
+	if err := worker.Do(ctx, j); err != nil {
 		span.SetStatus(codes.Error, fmt.Sprintf("error processing job: %v", err))
 
-		retry, backoff := q.fn.Retryable(j, err)
+		retry, backoff := worker.Retryable(j, err)
 
 		if retry {
 			nj := store.EnqueueParams{
-				QueueName:   q.name,
+				QueueName:   j.QueueName,
 				Data:        j.Data,
 				ScheduledAt: time.Now().Add(backoff),
 				Attempt:     j.Attempt + 1}

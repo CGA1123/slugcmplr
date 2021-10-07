@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cga1123/slugcmplr/queue"
 	"github.com/cga1123/slugcmplr/services/pingsvc"
 	"github.com/cga1123/slugcmplr/services/webhooksvc"
 	"github.com/cga1123/slugcmplr/store"
@@ -40,6 +41,9 @@ type ServerCmd struct {
 
 	// WebhookSecret is used to validate incoming webhook request signatures.
 	WebhookSecret []byte
+
+	// Enqueuer enables enqueueing of asynchronous messages.
+	Enqueuer queue.Enqueuer
 }
 
 // Execute starts a slugcmplr server, blocking untile a SIGTERM/SIGINT is
@@ -56,7 +60,7 @@ func (s *ServerCmd) Router() *mux.Router {
 		http.Redirect(w, r, "https://imgs.xkcd.com/comics/compiling.png", http.StatusFound)
 	})
 
-	pingsvc.Route(r, s.Store)
+	pingsvc.Route(r, s.Store, s.Enqueuer)
 	webhooksvc.Route(r, s.WebhookSecret)
 
 	return r

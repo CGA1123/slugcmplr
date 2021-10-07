@@ -44,31 +44,33 @@ func Test_EnqDeq(t *testing.T) {
 	db := pool(t)
 
 	jobs := make([]string, 0, 3)
-	q := queue.New(db, "test_queue", queue.NoRetryWorker(func(_ context.Context, j store.QueuedJob) error {
+	name := "test_queue_enqdeq"
+	q := queue.New(db)
+	worker := queue.NoRetryWorker(func(_ context.Context, j store.QueuedJob) error {
 		jobs = append(jobs, string(j.Data))
 
 		return nil
-	}))
+	})
 
 	ctx := context.Background()
 
 	now := time.Now()
 
-	_, err := q.Enq(ctx, []byte("1"), queue.ScheduledAt(now.Add(-time.Minute)))
+	_, err := q.Enq(ctx, name, []byte("1"), queue.ScheduledAt(now.Add(-time.Minute)))
 	require.NoError(t, err)
 
-	_, err = q.Enq(ctx, []byte("2"), queue.ScheduledAt(now.Add(-time.Second)))
+	_, err = q.Enq(ctx, name, []byte("2"), queue.ScheduledAt(now.Add(-time.Second)))
 	require.NoError(t, err)
 
-	_, err = q.Enq(ctx, []byte("3"), queue.ScheduledAt(now))
+	_, err = q.Enq(ctx, name, []byte("3"), queue.ScheduledAt(now))
 	require.NoError(t, err)
 
 	for i := 0; i < 3; i++ {
-		require.NoError(t, q.Deq(ctx), "Dequeueing should be successful")
+		require.NoError(t, q.Deq(ctx, name, worker), "Dequeueing should be successful")
 	}
 
 	assert.Equal(t, []string{"1", "2", "3"}, jobs, "Should dequeue in order")
-	assert.ErrorIs(t, q.Deq(ctx), pgx.ErrNoRows, "Expected dequeueing an empty queue to error")
+	assert.ErrorIs(t, q.Deq(ctx, name, worker), pgx.ErrNoRows, "Expected dequeueing an empty queue to error")
 }
 
 // nolint:paralleltest
@@ -78,9 +80,11 @@ func Test_Retries(t *testing.T) {
 	db := pool(t)
 
 	jobs := make([]string, 0, 3)
-	q := queue.New(db, "test_queue", queue.RetryWorker(
+	name := "test_queue_retries"
+	q := queue.New(db)
+	worker := queue.RetryWorker(
 		2,
-		queue.ConstantBackoff(time.Duration(0)),
+		queue.ConstantBackoff(-time.Second),
 		func(_ context.Context, j store.QueuedJob) error {
 			jobs = append(jobs, string(j.Data))
 
@@ -89,19 +93,19 @@ func Test_Retries(t *testing.T) {
 			}
 
 			return nil
-		}))
+		})
 
 	ctx := context.Background()
 
-	_, err := q.Enq(ctx, []byte("1"), queue.ScheduledAt(time.Now().Add(-time.Minute)))
+	_, err := q.Enq(ctx, name, []byte("1"), queue.ScheduledAt(time.Now().Add(-time.Minute)))
 	require.NoError(t, err)
 
 	for i := 0; i < 3; i++ {
-		require.NoError(t, q.Deq(ctx), "Dequeueing should be successful")
+		require.NoError(t, q.Deq(ctx, name, worker), "Dequeueing should be successful")
 	}
 
 	assert.Equal(t, []string{"1", "1", "1"}, jobs, "Should dequeue in order")
-	assert.ErrorIs(t, q.Deq(ctx), pgx.ErrNoRows, "Expected dequeueing an empty queue to error")
+	assert.ErrorIs(t, q.Deq(ctx, name, worker), pgx.ErrNoRows, "Expected dequeueing an empty queue to error")
 }
 
 // nolint:paralleltest
@@ -112,29 +116,34 @@ func Test_DeadLetter(t *testing.T) {
 	defer func() {
 		_, err := db.Exec(context.Background(), "TRUNCATE dead_jobs")
 		require.NoError(t, err, "Truncating should succeed")
+
+		_, err = db.Exec(context.Background(), "TRUNCATE queued_jobs")
+		require.NoError(t, err, "Truncating should succeed")
 	}()
 
 	jobs := make([]string, 0, 3)
-	q := queue.New(db, "test_queue", queue.RetryWorker(
+	name := "test_queue_dead_letter"
+	q := queue.New(db)
+	worker := queue.RetryWorker(
 		2,
-		queue.ConstantBackoff(time.Duration(0)),
+		queue.ConstantBackoff(-time.Second),
 		func(_ context.Context, j store.QueuedJob) error {
 			jobs = append(jobs, string(j.Data))
 
 			return fmt.Errorf("an error")
-		}))
+		})
 
 	ctx := context.Background()
 
-	_, err := q.Enq(ctx, []byte("1"), queue.ScheduledAt(time.Now().Add(-time.Minute)))
+	_, err := q.Enq(ctx, name, []byte("1"), queue.ScheduledAt(time.Now().Add(-time.Minute)))
 	require.NoError(t, err)
 
 	for i := 0; i < 3; i++ {
-		require.NoError(t, q.Deq(ctx), "Dequeueing should be successful")
+		require.NoError(t, q.Deq(ctx, name, worker), "Dequeueing should be successful")
 	}
 
 	assert.Equal(t, []string{"1", "1", "1"}, jobs, "Should dequeue in order")
-	assert.ErrorIs(t, q.Deq(ctx), pgx.ErrNoRows, "Expected dequeueing an empty queue to error")
+	assert.ErrorIs(t, q.Deq(ctx, name, worker), pgx.ErrNoRows, "Expected dequeueing an empty queue to error")
 
 	deadLetters, err := store.New(db).DeadLetterCount(ctx)
 	require.NoError(t, err, "Fetching count of dead letters should not fail")
