@@ -50,6 +50,7 @@ func Cmd() *cobra.Command {
 		imageCmd,
 		versionCmd,
 		serverCmd,
+		workerCmd,
 	}
 	for _, cmd := range cmds {
 		rootCmd.AddCommand(cmd(verbose))
