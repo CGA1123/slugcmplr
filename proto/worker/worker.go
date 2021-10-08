@@ -39,7 +39,7 @@ func (e *httpEnqueuer) Do(r *http.Request) (*http.Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read request body: %w", err)
 	}
-	defer r.Body.Close()
+	defer r.Body.Close() // nolint:errcheck
 
 	msg, err := json.Marshal(message{Method: method, Base64Body: base64.StdEncoding.EncodeToString(body)})
 	if err != nil {
