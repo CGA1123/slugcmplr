@@ -116,16 +116,34 @@ func ScheduledAt(t time.Time) JobOptions {
 	}
 }
 
-// PGQueue contains the state required for the PG backed queue implementation.
-type PGQueue struct {
+// InMemory implements an in-memory queue.
+type InMemory []store.QueuedJob
+
+// Enq enqueues the given job to the in-memory queue.
+func (m *InMemory) Enq(_ context.Context, q string, data []byte, _ ...JobOptions) (uuid.UUID, error) {
+	id := uuid.New()
+	*m = append(*m, store.QueuedJob{
+		ID:          id,
+		QueueName:   q,
+		QueuedAt:    time.Now(),
+		ScheduledAt: time.Now(),
+		Data:        data,
+		Attempt:     0,
+	})
+
+	return id, nil
+}
+
+// PG contains the state required for the PG backed queue implementation.
+type PG struct {
 	db       *pgxpool.Pool
 	enqStore store.Querier
 	tracer   trace.Tracer
 }
 
 // New creates a new Queue.
-func New(db *pgxpool.Pool) *PGQueue {
-	return &PGQueue{
+func New(db *pgxpool.Pool) *PG {
+	return &PG{
 		db:       db,
 		enqStore: store.New(obs.NewDB(db)),
 		tracer:   otel.Tracer("github.com/CGA1123/slugcmplr/queue"),
@@ -133,7 +151,7 @@ func New(db *pgxpool.Pool) *PGQueue {
 }
 
 // Enq enqueues a single job to the queue.
-func (q *PGQueue) Enq(ctx context.Context, queue string, data []byte, opts ...JobOptions) (uuid.UUID, error) {
+func (q *PG) Enq(ctx context.Context, queue string, data []byte, opts ...JobOptions) (uuid.UUID, error) {
 	ctx, span := q.tracer.Start(ctx, "enqueue",
 		trace.WithSpanKind(trace.SpanKindProducer),
 		trace.WithAttributes(
@@ -173,7 +191,7 @@ func (q *PGQueue) Enq(ctx context.Context, queue string, data []byte, opts ...Jo
 // Deq dequeues a single job for the queue. The worker may retry based on it's
 // settings, if retries become exhausted, the job will be moved to the dead
 // letter queue.
-func (q *PGQueue) Deq(ctx context.Context, queue string, worker Worker) error {
+func (q *PG) Deq(ctx context.Context, queue string, worker Worker) error {
 	ctx, span := q.tracer.Start(ctx, "dequeue",
 		trace.WithSpanKind(trace.SpanKindConsumer),
 		trace.WithAttributes(

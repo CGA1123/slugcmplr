@@ -1,9 +1,10 @@
 package webhooksvc
 
 import (
-	"fmt"
 	"net/http"
 
+	"github.com/cga1123/slugcmplr/proto/compileworker"
+	"github.com/cga1123/slugcmplr/queue"
 	"github.com/google/go-github/v39/github"
 	"github.com/gorilla/mux"
 	"go.opentelemetry.io/otel"
@@ -14,8 +15,8 @@ import (
 var _ http.Handler = (*service)(nil)
 
 // Route registers the webhooksvc to handle requests to `POST /github/events`.
-func Route(m *mux.Router, secret []byte) {
-	svc := build(secret)
+func Route(m *mux.Router, secret []byte, enq queue.Enqueuer) {
+	svc := build(secret, enq)
 
 	m.Handle("/github/events", svc).Methods(http.MethodPost)
 }
@@ -23,11 +24,13 @@ func Route(m *mux.Router, secret []byte) {
 type service struct {
 	webhookSecret []byte
 	tracer        trace.Tracer
+	enq           compileworker.Compile
 }
 
-func build(secret []byte) http.Handler {
+func build(secret []byte, enq queue.Enqueuer) http.Handler {
 	return &service{
 		webhookSecret: secret,
+		enq:           compileworker.NewCompileJSONClient("", queue.TwirpEnqueuer(enq)),
 		tracer:        otel.Tracer("github.com/CGA1123/slugcmplr/service/webhooksvc"),
 	}
 }
@@ -41,7 +44,6 @@ func (s *service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	payload, err := github.ValidatePayload(r, s.webhookSecret)
 	if err != nil {
-		fmt.Println(err.Error())
 		span.SetAttributes(attribute.String("error.message", "invalid_signature"))
 		http.Error(w, "invalid_signature", http.StatusUnauthorized)
 		return
@@ -54,14 +56,27 @@ func (s *service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, ok := event.(*github.PushEvent)
+	push, ok := event.(*github.PushEvent)
 	if !ok {
 		w.WriteHeader(http.StatusAccepted)
 		w.Write([]byte("skipped\n")) // nolint:errcheck
 		return
 	}
 
-	// TODO: do something useful...
+	if _, err := s.enq.TriggerForRepository(
+		r.Context(),
+		&compileworker.RepositoryInfo{
+			EventId:    github.DeliveryID(r),
+			CommitSha:  push.GetHeadCommit().GetSHA(),
+			Owner:      push.GetRepo().GetOwner().GetLogin(),
+			Repository: push.GetRepo().GetName(),
+			Ref:        push.GetRef(),
+		},
+	); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("error_enqueuing\n")) // nolint:errcheck
+		return
+	}
 
 	w.WriteHeader(http.StatusAccepted)
 	w.Write([]byte("processed\n")) // nolint:errcheck

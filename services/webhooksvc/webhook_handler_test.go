@@ -5,7 +5,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +12,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/cga1123/slugcmplr/queue"
 	"github.com/cga1123/slugcmplr/services/webhooksvc"
 	"github.com/google/go-github/v39/github"
 	"github.com/google/uuid"
@@ -87,13 +87,13 @@ func Test_Handler(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			m := mux.NewRouter()
 
-			webhooksvc.Route(m, tc.secret)
+			q := make(queue.InMemory, 0)
+			webhooksvc.Route(m, tc.secret, &q)
 
 			body := bytes.NewReader(tc.payload)
 			r, err := http.NewRequest(http.MethodPost, "/github/events", body)
 			require.NoError(t, err, "Request should be created without error.")
 
-			fmt.Println(tc.signature)
 			r.Header.Add(github.SHA256SignatureHeader, tc.signature)
 			r.Header.Add(github.EventTypeHeader, tc.event)
 			r.Header.Add(github.DeliveryIDHeader, tc.deliveryID)
@@ -109,6 +109,12 @@ func Test_Handler(t *testing.T) {
 
 			assert.Equal(t, tc.expectedStatus, result.StatusCode, "The expected status code should be returned")
 			assert.Equal(t, tc.expectedBody, string(response), "The expected response body should be returned")
+
+			if tc.expectedBody == "processed\n" {
+				assert.Equal(t, 1, len(q), "Should have enqueued one job.")
+			} else {
+				assert.Equal(t, 0, len(q), "Should not have enqueued any job.")
+			}
 		})
 	}
 }

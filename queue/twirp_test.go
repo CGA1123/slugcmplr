@@ -5,31 +5,12 @@ import (
 	"encoding/base64"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/cga1123/slugcmplr/proto/pingworker"
 	"github.com/cga1123/slugcmplr/queue"
-	qstore "github.com/cga1123/slugcmplr/queue/store"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-type memqueue []qstore.QueuedJob
-
-func (m *memqueue) Enq(_ context.Context, q string, data []byte, _ ...queue.JobOptions) (uuid.UUID, error) {
-	id := uuid.New()
-	*m = append(*m, qstore.QueuedJob{
-		ID:          id,
-		QueueName:   q,
-		QueuedAt:    time.Now(),
-		ScheduledAt: time.Now(),
-		Data:        data,
-		Attempt:     0,
-	})
-
-	return id, nil
-}
 
 type svc struct {
 	msg []string
@@ -44,7 +25,7 @@ func (s *svc) Ping(_ context.Context, r *pingworker.PingRequest) (*pingworker.Jo
 func Test_Worker(t *testing.T) {
 	t.Parallel()
 
-	q := make(memqueue, 0)
+	q := make(queue.InMemory, 0)
 	enq := pingworker.NewWorkerJSONClient("", queue.TwirpEnqueuer(&q))
 
 	r, err := enq.Ping(context.Background(), &pingworker.PingRequest{Msg: "test"})
