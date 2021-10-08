@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package pingworker;
+
+option go_package = "github.com/cga1123/slugcmplr/proto/pingworker";
+
+service Worker {
+  rpc Ping(PingRequest) returns (JobResponse);
+}
+
+message JobResponse {
+  string jid = 1;
+}
+
+message PingRequest {
+  string msg = 1;
+}
+

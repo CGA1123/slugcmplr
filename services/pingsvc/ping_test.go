@@ -2,7 +2,9 @@ package pingsvc_test
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/http/httptest"
 	"testing"
 
@@ -102,6 +104,8 @@ func Test_Queue(t *testing.T) {
 	assert.Equal(t, 1, len(q), "Should have enqueued one message.")
 	job := q[0]
 	assert.Equal(t, job.id.String(), r.Jid, "The returned JID should match the enqueued JID.")
-	assert.Equal(t, "ping_queue", job.q, "The jobs should have been queue on ping_queue.")
-	assert.Equal(t, []byte("foo"), job.d, "The jobs should have been queued with foo as data.")
+	assert.Equal(t, "default", job.q, "The jobs should have been queued on default.")
+
+	expected := fmt.Sprintf(`{"method":"/twirp/pingworker.Worker/Ping","base64_body":"%v"}`, base64.StdEncoding.EncodeToString([]byte(`{"msg":"foo"}`)))
+	assert.Equal(t, expected, string(job.d), "The jobs should have been queued with foo as data.")
 }

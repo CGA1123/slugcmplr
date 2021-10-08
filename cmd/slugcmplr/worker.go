@@ -5,17 +5,16 @@ import (
 	"fmt"
 
 	"github.com/cga1123/slugcmplr"
-	"github.com/cga1123/slugcmplr/obs"
 	"github.com/cga1123/slugcmplr/queue"
-	"github.com/cga1123/slugcmplr/store"
+	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/spf13/cobra"
 )
 
-func serverCmd(verbose bool) *cobra.Command {
+func workerCmd(verbose bool) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "server",
-		Short: "start a slugmcplr server",
+		Use:   "worker",
+		Short: "start a slugcmplr worker",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			output := outputterFromCmd(cmd, verbose)
@@ -25,16 +24,14 @@ func serverCmd(verbose bool) *cobra.Command {
 			}
 
 			env, err := requireEnv(
-				"PORT",
 				"SLUGCMPLR_ENV",
 				"DATABASE_URL",
-				"SLUGCMPLR_WEBHOOK_SECRET",
 			)
 			if err != nil {
 				return fmt.Errorf("error fetching environment: %w", err)
 			}
 
-			closer, err := initObs(cmd, output, "slugcmplr-http", env)
+			closer, err := initObs(cmd, output, "slugcmplr-worker", env)
 			if err != nil {
 				return err
 			}
@@ -54,15 +51,13 @@ func serverCmd(verbose bool) *cobra.Command {
 				return fmt.Errorf("error creating db connection pool: %w", err)
 			}
 
-			s := &slugcmplr.ServerCmd{
-				Port:          env["PORT"],
-				Environment:   env["SLUGCMPLR_ENV"],
-				Store:         store.New(obs.NewDB(pool)),
-				Enqueuer:      queue.New(pool),
-				WebhookSecret: []byte(env["SLUGCMPLR_WEBHOOK_SECRET"]),
+			w := &slugcmplr.WorkerCmd{
+				Dequeuer: queue.New(pool),
+				Queues:   map[string]int{"default": 1},
+				Router:   mux.NewRouter(),
 			}
 
-			return s.Execute(cmd.Context(), output)
+			return w.Execute(cmd.Context(), output)
 		},
 	}
 
