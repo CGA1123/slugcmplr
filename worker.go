@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/cga1123/slugcmplr/queue"
+	"github.com/cga1123/slugcmplr/services/pingsvc"
+	"github.com/gorilla/mux"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -17,7 +19,7 @@ import (
 type WorkerCmd struct {
 	Dequeuer queue.Dequeuer
 	Queues   map[string]int
-	Fn       queue.Worker
+	Router   *mux.Router
 }
 
 // Execute starts a pool of goroutines to process jobs from the queue.
@@ -25,6 +27,9 @@ type WorkerCmd struct {
 // This functions will block until it receives SIGINT/SIGTERM or the given
 // context is cancelled.
 func (w *WorkerCmd) Execute(ctx context.Context, _ Outputter) error {
+	fn := queue.TwirpWorker(w.Router)
+	pingsvc.Work(w.Router)
+
 	shutdownC := make(chan os.Signal, 1)
 	signal.Notify(shutdownC, syscall.SIGINT, syscall.SIGTERM)
 	ctx, cancel := context.WithCancel(ctx)
@@ -36,10 +41,9 @@ func (w *WorkerCmd) Execute(ctx context.Context, _ Outputter) error {
 	}()
 
 	g, ctx := errgroup.WithContext(ctx)
-
-	for queue, workers := range w.Queues {
+	for name, workers := range w.Queues {
 		for i := 0; i < workers; i++ {
-			g.Go(consume(ctx, w.Dequeuer, queue, w.Fn))
+			g.Go(consume(ctx, w.Dequeuer, name, fn))
 		}
 	}
 

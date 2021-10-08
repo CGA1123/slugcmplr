@@ -5,9 +5,8 @@ import (
 	"fmt"
 
 	"github.com/cga1123/slugcmplr"
-	"github.com/cga1123/slugcmplr/proto/worker"
 	"github.com/cga1123/slugcmplr/queue"
-	"github.com/cga1123/slugcmplr/services/workersvc"
+	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/spf13/cobra"
 )
@@ -55,7 +54,8 @@ func workerCmd(verbose bool) *cobra.Command {
 			w := &slugcmplr.WorkerCmd{
 				Dequeuer: queue.New(pool),
 				Queues:   map[string]int{"default": 1},
-				Fn:       worker.NewWorker(workersvc.New())}
+				Router:   mux.NewRouter(),
+			}
 
 			return w.Execute(cmd.Context(), output)
 		},
