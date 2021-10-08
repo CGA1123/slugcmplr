@@ -9,12 +9,12 @@ import (
 
 var _ worker.Worker = (*service)(nil)
 
+// New returns a worker.Worker used to handle jobs.
 func New() worker.Worker {
 	return &service{}
 }
 
-type service struct {
-}
+type service struct{}
 
 func (s *service) Ping(_ context.Context, r *worker.PingRequest) (*worker.JobResponse, error) {
 	log.Printf("ping job: %v", r.Msg)

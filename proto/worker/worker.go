@@ -18,11 +18,13 @@ import (
 	twirp "github.com/twitchtv/twirp"
 )
 
-type Message struct {
+type message struct {
 	Method     string `json:"method"`
 	Base64Body string `json:"base64_body"`
 }
 
+// NewEnqueuer builds a new Worker client which enqueues all requests to the
+// given queue.Enqueuer as twirp JSON messages.
 func NewEnqueuer(enq queue.Enqueuer) Worker {
 	return NewWorkerJSONClient("", &httpEnqueuer{enq: enq})
 }
@@ -39,7 +41,7 @@ func (e *httpEnqueuer) Do(r *http.Request) (*http.Response, error) {
 	}
 	defer r.Body.Close()
 
-	msg, err := json.Marshal(Message{Method: method, Base64Body: base64.StdEncoding.EncodeToString(body)})
+	msg, err := json.Marshal(message{Method: method, Base64Body: base64.StdEncoding.EncodeToString(body)})
 	if err != nil {
 		return nil, fmt.Errorf("error marshaling payload: %w", err)
 	}
@@ -60,10 +62,11 @@ func (e *httpEnqueuer) Do(r *http.Request) (*http.Response, error) {
 		Body:          ioutil.NopCloser(bytes.NewBufferString(resp)),
 		ContentLength: int64(len(resp)),
 		Request:       r,
-		Header:        make(http.Header, 0),
+		Header:        make(http.Header),
 	}, nil
 }
 
+// NewWorker creates a new twirp based queue.Worker.
 func NewWorker(svc Worker) queue.Worker {
 	return &worker{
 		handler: NewWorkerServer(svc, twirp.WithServerInterceptors(services.TwirpOtelInterceptor())),
@@ -75,7 +78,7 @@ type worker struct {
 }
 
 func (w *worker) Do(ctx context.Context, j qstore.QueuedJob) error {
-	var msg Message
+	var msg message
 	if err := json.Unmarshal(j.Data, &msg); err != nil {
 		return err
 	}
@@ -104,6 +107,6 @@ func (w *worker) Do(ctx context.Context, j qstore.QueuedJob) error {
 }
 
 // TODO: how to decide if an error is retryable?
-func (w *worker) Retryable(j qstore.QueuedJob, err error) (bool, time.Duration) {
+func (w *worker) Retryable(_ qstore.QueuedJob, _ error) (bool, time.Duration) {
 	return false, time.Duration(0)
 }

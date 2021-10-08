@@ -54,7 +54,6 @@ func consume(ctx context.Context, deq queue.Dequeuer, queue string, fn queue.Wor
 				return ctx.Err()
 			default:
 				if err := deq.Deq(ctx, queue, fn); err != nil {
-
 					log.Printf("error dequeueing from %v: %v", queue, err)
 
 					// TODO: should this be exponential backoff to some limit?
