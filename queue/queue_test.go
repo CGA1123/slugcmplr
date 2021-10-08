@@ -150,3 +150,29 @@ func Test_DeadLetter(t *testing.T) {
 
 	assert.Equal(t, int64(1), deadLetters, "There should be a single dead letter")
 }
+
+// nolint:paralleltest
+func Test_PanicRecover(t *testing.T) {
+	dbtest(t)
+
+	db := pool(t)
+	defer func() {
+		_, err := db.Exec(context.Background(), "TRUNCATE dead_jobs")
+		require.NoError(t, err, "Truncating should succeed")
+
+		_, err = db.Exec(context.Background(), "TRUNCATE queued_jobs")
+		require.NoError(t, err, "Truncating should succeed")
+	}()
+
+	ctx := context.Background()
+	q := queue.New(db)
+
+	_, err := q.Enq(ctx, "default", []byte("foo"))
+	require.NoError(t, err)
+
+	w := queue.NoRetryWorker(func(_ context.Context, _ store.QueuedJob) error {
+		panic("AHHHHH!")
+	})
+
+	assert.NoError(t, q.Deq(ctx, "default", w))
+}

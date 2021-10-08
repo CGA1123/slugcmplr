@@ -8,6 +8,7 @@ import (
 	"github.com/cga1123/slugcmplr/obs"
 	"github.com/cga1123/slugcmplr/queue/store"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -116,16 +117,47 @@ func ScheduledAt(t time.Time) JobOptions {
 	}
 }
 
-// PGQueue contains the state required for the PG backed queue implementation.
-type PGQueue struct {
+// InMemory implements an in-memory queue.
+// It is not safe for concurrent access.
+type InMemory []store.QueuedJob
+
+// Enq enqueues the given job to the in-memory queue.
+func (m *InMemory) Enq(_ context.Context, q string, data []byte, _ ...JobOptions) (uuid.UUID, error) {
+	id := uuid.New()
+	*m = append(*m, store.QueuedJob{
+		ID:          id,
+		QueueName:   q,
+		QueuedAt:    time.Now(),
+		ScheduledAt: time.Now(),
+		Data:        data,
+		Attempt:     0,
+	})
+
+	return id, nil
+}
+
+// Deq dequeue the given job from the in-memory queue.
+func (m *InMemory) Deq(ctx context.Context, _ string, w Worker) error {
+	if len(*m) == 0 {
+		return pgx.ErrNoRows
+	}
+
+	j := (*m)[0]
+	*m = (*m)[1:]
+
+	return w.Do(ctx, j)
+}
+
+// PG contains the state required for the PG backed queue implementation.
+type PG struct {
 	db       *pgxpool.Pool
 	enqStore store.Querier
 	tracer   trace.Tracer
 }
 
 // New creates a new Queue.
-func New(db *pgxpool.Pool) *PGQueue {
-	return &PGQueue{
+func New(db *pgxpool.Pool) *PG {
+	return &PG{
 		db:       db,
 		enqStore: store.New(obs.NewDB(db)),
 		tracer:   otel.Tracer("github.com/CGA1123/slugcmplr/queue"),
@@ -133,7 +165,7 @@ func New(db *pgxpool.Pool) *PGQueue {
 }
 
 // Enq enqueues a single job to the queue.
-func (q *PGQueue) Enq(ctx context.Context, queue string, data []byte, opts ...JobOptions) (uuid.UUID, error) {
+func (q *PG) Enq(ctx context.Context, queue string, data []byte, opts ...JobOptions) (uuid.UUID, error) {
 	ctx, span := q.tracer.Start(ctx, "enqueue",
 		trace.WithSpanKind(trace.SpanKindProducer),
 		trace.WithAttributes(
@@ -173,7 +205,7 @@ func (q *PGQueue) Enq(ctx context.Context, queue string, data []byte, opts ...Jo
 // Deq dequeues a single job for the queue. The worker may retry based on it's
 // settings, if retries become exhausted, the job will be moved to the dead
 // letter queue.
-func (q *PGQueue) Deq(ctx context.Context, queue string, worker Worker) error {
+func (q *PG) Deq(ctx context.Context, queue string, worker Worker) error {
 	ctx, span := q.tracer.Start(ctx, "dequeue",
 		trace.WithSpanKind(trace.SpanKindConsumer),
 		trace.WithAttributes(
@@ -202,7 +234,9 @@ func (q *PGQueue) Deq(ctx context.Context, queue string, worker Worker) error {
 		attribute.Int("messaging.delivery_attempt", int(j.Attempt)),
 	)
 
-	if err := worker.Do(ctx, j); err != nil {
+	// TODO: `Do` could panic. We should recover gracefully here in order to
+	// avoid killing the whole worker process.
+	if err := do(ctx, worker, j); err != nil {
 		span.SetStatus(codes.Error, fmt.Sprintf("error processing job: %v", err))
 
 		retry, backoff := worker.Retryable(j, err)
@@ -236,4 +270,14 @@ func (q *PGQueue) Deq(ctx context.Context, queue string, worker Worker) error {
 	span.SetStatus(codes.Ok, "")
 
 	return nil
+}
+
+func do(ctx context.Context, w Worker, j store.QueuedJob) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic during job execution")
+		}
+	}()
+
+	return w.Do(ctx, j)
 }

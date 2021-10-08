@@ -10,6 +10,11 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// TODO: Add a TwirpClientInterceptor that creates a span and calls
+// TwirpOtelInterceptor
+
+// TODO: Add a HTTP Client Observability
+
 // TwirpOtelInterceptor returns a twirp.Interceptor which adds otel RPC
 // attributes to the current HTTP span.
 func TwirpOtelInterceptor() twirp.Interceptor {

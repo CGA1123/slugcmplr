@@ -10,28 +10,13 @@ import (
 
 	"github.com/cga1123/slugcmplr/proto/ping"
 	"github.com/cga1123/slugcmplr/queue"
+	qstore "github.com/cga1123/slugcmplr/queue/store"
 	"github.com/cga1123/slugcmplr/services/pingsvc"
 	"github.com/cga1123/slugcmplr/store"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/twitchtv/twirp"
 )
-
-type message struct {
-	q  string
-	d  []byte
-	id uuid.UUID
-}
-
-type memqueue []message
-
-func (m *memqueue) Enq(_ context.Context, q string, data []byte, _ ...queue.JobOptions) (uuid.UUID, error) {
-	id := uuid.New()
-	*m = append(*m, message{q: q, d: data, id: id})
-
-	return id, nil
-}
 
 func client(s store.Querier, q queue.Enqueuer) (ping.Ping, func()) {
 	m := mux.NewRouter()
@@ -46,7 +31,7 @@ func client(s store.Querier, q queue.Enqueuer) (ping.Ping, func()) {
 func Test_Echo(t *testing.T) {
 	t.Parallel()
 
-	q := make(memqueue, 0)
+	q := make(queue.InMemory, 0)
 	svc, closer := client(&store.Memory{}, &q)
 	defer closer()
 
@@ -59,7 +44,7 @@ func Test_Echo(t *testing.T) {
 func Test_Boom(t *testing.T) {
 	t.Parallel()
 
-	q := make(memqueue, 0)
+	q := make(queue.InMemory, 0)
 	svc, closer := client(&store.Memory{}, &q)
 	defer closer()
 
@@ -74,7 +59,7 @@ func Test_Boom(t *testing.T) {
 func Test_DatabaseHealth(t *testing.T) { // nolint:paralleltest
 	cases := []struct{ err error }{{err: nil}, {err: errors.New("test error")}}
 	for _, tc := range cases {
-		q := make(memqueue, 0)
+		q := make(queue.InMemory, 0)
 		s := &store.Memory{}
 		s.HealthErr = tc.err
 
@@ -94,7 +79,7 @@ func Test_DatabaseHealth(t *testing.T) { // nolint:paralleltest
 func Test_Queue(t *testing.T) {
 	t.Parallel()
 
-	q := make(memqueue, 0)
+	q := make(queue.InMemory, 0)
 	svc, closer := client(&store.Memory{}, &q)
 	defer closer()
 
@@ -102,10 +87,10 @@ func Test_Queue(t *testing.T) {
 	assert.NoError(t, err, "Queue should not error.")
 
 	assert.Equal(t, 1, len(q), "Should have enqueued one message.")
-	job := q[0]
-	assert.Equal(t, job.id.String(), r.Jid, "The returned JID should match the enqueued JID.")
-	assert.Equal(t, "default", job.q, "The jobs should have been queued on default.")
+	job := []qstore.QueuedJob(q)[0]
+	assert.Equal(t, job.ID.String(), r.Jid, "The returned JID should match the enqueued JID.")
+	assert.Equal(t, "default", job.QueueName, "The jobs should have been queued on default.")
 
 	expected := fmt.Sprintf(`{"method":"/twirp/pingworker.Worker/Ping","base64_body":"%v"}`, base64.StdEncoding.EncodeToString([]byte(`{"msg":"foo"}`)))
-	assert.Equal(t, expected, string(job.d), "The jobs should have been queued with foo as data.")
+	assert.Equal(t, expected, string(job.Data), "The jobs should have been queued with foo as data.")
 }

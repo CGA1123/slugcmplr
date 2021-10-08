@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/cga1123/slugcmplr/queue"
-	"github.com/cga1123/slugcmplr/services/pingsvc"
 	"github.com/gorilla/mux"
 	"golang.org/x/sync/errgroup"
 )
@@ -28,7 +27,6 @@ type WorkerCmd struct {
 // context is cancelled.
 func (w *WorkerCmd) Execute(ctx context.Context, _ Outputter) error {
 	fn := queue.TwirpWorker(w.Router)
-	pingsvc.Work(w.Router)
 
 	shutdownC := make(chan os.Signal, 1)
 	signal.Notify(shutdownC, syscall.SIGINT, syscall.SIGTERM)

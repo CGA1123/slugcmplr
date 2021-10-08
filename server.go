@@ -61,7 +61,7 @@ func (s *ServerCmd) Router() *mux.Router {
 	})
 
 	pingsvc.Route(r, s.Store, s.Enqueuer)
-	webhooksvc.Route(r, s.WebhookSecret)
+	webhooksvc.Route(r, s.WebhookSecret, s.Enqueuer)
 
 	return r
 }

@@ -91,7 +91,10 @@ func (e *httpEnqueuer) Do(r *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("error marshaling payload: %w", err)
 	}
 
-	// TODO: how to enable selecting the queue name?
+	// TODO: how to enable selecting the queue name? if this gets implemented,
+	// probably queues should be based on expected dequeue delay SLA.
+	//
+	// Then can get into some funsies with scaling workers based on dequeue times.
 	id, err := e.enq.Enq(r.Context(), "default", msg)
 	if err != nil {
 		return nil, fmt.Errorf("error enqueueing job: %w", err)
