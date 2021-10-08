@@ -51,8 +51,10 @@ func workerCmd(verbose bool) *cobra.Command {
 				return fmt.Errorf("error creating db connection pool: %w", err)
 			}
 
+			q := queue.New(pool)
 			w := &slugcmplr.WorkerCmd{
-				Dequeuer: queue.New(pool),
+				Dequeuer: q,
+				Enqueuer: q,
 				Queues:   map[string]int{"default": 1},
 				Router:   mux.NewRouter(),
 			}

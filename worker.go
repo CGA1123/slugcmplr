@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cga1123/slugcmplr/queue"
+	"github.com/cga1123/slugcmplr/services/compilesvc"
 	"github.com/cga1123/slugcmplr/services/pingsvc"
 	"github.com/gorilla/mux"
 	"golang.org/x/sync/errgroup"
@@ -18,8 +19,10 @@ import (
 // process, consuming jobs from a given set of queues.
 type WorkerCmd struct {
 	Dequeuer queue.Dequeuer
-	Queues   map[string]int
-	Router   *mux.Router
+	Enqueuer queue.Enqueuer
+
+	Queues map[string]int
+	Router *mux.Router
 }
 
 // Execute starts a pool of goroutines to process jobs from the queue.
@@ -29,6 +32,7 @@ type WorkerCmd struct {
 func (w *WorkerCmd) Execute(ctx context.Context, _ Outputter) error {
 	fn := queue.TwirpWorker(w.Router)
 	pingsvc.Work(w.Router)
+	compilesvc.Work(w.Router, w.Enqueuer)
 
 	shutdownC := make(chan os.Signal, 1)
 	signal.Notify(shutdownC, syscall.SIGINT, syscall.SIGTERM)
