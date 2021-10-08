@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/cga1123/slugcmplr/proto/ping"
+	"github.com/cga1123/slugcmplr/proto/worker"
 	"github.com/cga1123/slugcmplr/queue"
 	"github.com/cga1123/slugcmplr/services"
 	"github.com/cga1123/slugcmplr/store"
@@ -16,7 +17,7 @@ var _ ping.Ping = (*service)(nil)
 // service implements the Ping service.
 type service struct {
 	store store.Querier
-	queue queue.Enqueuer
+	queue worker.Worker
 }
 
 // Route registers the twirp pingsvc onto the given router.
@@ -27,7 +28,7 @@ func Route(m *mux.Router, store store.Querier, enq queue.Enqueuer) {
 }
 
 func build(store store.Querier, queue queue.Enqueuer) ping.Ping {
-	return &service{store: store, queue: queue}
+	return &service{store: store, queue: worker.NewEnqueuer(queue)}
 }
 
 // Echo echoes its given message.
@@ -50,10 +51,10 @@ func (s *service) DatabaseHealth(ctx context.Context, _ *ping.DatabaseHealthRequ
 }
 
 func (s *service) Queue(ctx context.Context, r *ping.QueueRequest) (*ping.QueueResponse, error) {
-	id, err := s.queue.Enq(ctx, "ping_queue", []byte(r.Msg))
+	id, err := s.queue.Ping(ctx, &worker.PingRequest{Msg: r.Msg})
 	if err != nil {
 		return nil, twirp.InternalErrorWith(err)
 	}
 
-	return &ping.QueueResponse{Jid: id.String()}, nil
+	return &ping.QueueResponse{Jid: id.Jid}, nil
 }

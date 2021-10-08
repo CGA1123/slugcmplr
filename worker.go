@@ -16,8 +16,14 @@ import (
 // process, consuming jobs from a given set of queues.
 type WorkerCmd struct {
 	Dequeuer queue.Dequeuer
+	Queues   map[string]int
+	Fn       queue.Worker
 }
 
+// Execute starts a pool of goroutines to process jobs from the queue.
+//
+// This functions will block until it receives SIGINT/SIGTERM or the given
+// context is cancelled.
 func (w *WorkerCmd) Execute(ctx context.Context, _ Outputter) error {
 	shutdownC := make(chan os.Signal, 1)
 	signal.Notify(shutdownC, syscall.SIGINT, syscall.SIGTERM)
@@ -30,23 +36,25 @@ func (w *WorkerCmd) Execute(ctx context.Context, _ Outputter) error {
 	}()
 
 	g, ctx := errgroup.WithContext(ctx)
-	queues := map[string]queue.Worker{}
 
-	for queue, worker := range queues {
-		g.Go(doWork(ctx, w.Dequeuer, queue, worker))
+	for queue, workers := range w.Queues {
+		for i := 0; i < workers; i++ {
+			g.Go(consume(ctx, w.Dequeuer, queue, w.Fn))
+		}
 	}
 
 	return g.Wait()
 }
 
-func doWork(ctx context.Context, deq queue.Dequeuer, queue string, worker queue.Worker) func() error {
+func consume(ctx context.Context, deq queue.Dequeuer, queue string, fn queue.Worker) func() error {
 	return func() error {
 		for {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
 			default:
-				if err := deq.Deq(ctx, queue, worker); err != nil {
+				if err := deq.Deq(ctx, queue, fn); err != nil {
+
 					log.Printf("error dequeueing from %v: %v", queue, err)
 
 					// TODO: should this be exponential backoff to some limit?
