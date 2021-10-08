@@ -45,7 +45,7 @@ func Route(m *mux.Router, store store.Querier, enq queue.Enqueuer) {
 }
 
 func build(store store.Querier, q queue.Enqueuer) ping.Ping {
-	return &service{store: store, queue: pingworker.NewWorkerJSONClient("", queue.TwirpEnqueuer(q))}
+	return &service{store: store, queue: pingworker.NewWorkerJSONClient("", queue.TwirpEnqueuer(q), twirp.WithClientInterceptors(obs.TwirpOtelInterceptor()))}
 }
 
 // Echo echoes its given message.
