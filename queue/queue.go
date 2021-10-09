@@ -220,6 +220,8 @@ func (q *PG) Deq(ctx context.Context, queue string, worker Worker) error {
 		attribute.Int("messaging.delivery_attempt", int(j.Attempt)),
 	)
 
+	// TODO: `Do` could panic. We should recover gracefully here in order to
+	// avoid killing the whole worker process.
 	if err := worker.Do(ctx, j); err != nil {
 		span.SetStatus(codes.Error, fmt.Sprintf("error processing job: %v", err))
 
