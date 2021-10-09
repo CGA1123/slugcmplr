@@ -19,13 +19,15 @@ message RepositoryInfo {
   string owner = 4;
   string repository = 5;
   string ref = 6;
+  string tree_sha = 7;
 }
 
 message TargetInfo {
-  string delivery_id = 1;
+  string event_id = 1;
   string target = 2;
 
   string commit_sha = 3;
   string owner = 4;
   string repository = 5;
+  string tree_sha = 6;
 }

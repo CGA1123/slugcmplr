@@ -68,6 +68,7 @@ func (s *service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		&compileworker.RepositoryInfo{
 			EventId:    github.DeliveryID(r),
 			CommitSha:  push.GetHeadCommit().GetSHA(),
+			TreeSha:    push.GetHeadCommit().GetTreeID(),
 			Owner:      push.GetRepo().GetOwner().GetLogin(),
 			Repository: push.GetRepo().GetName(),
 			Ref:        push.GetRef(),
