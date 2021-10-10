@@ -8,11 +8,13 @@ package compilesvc
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 
 	"github.com/cga1123/slugcmplr/obs"
 	"github.com/cga1123/slugcmplr/proto/compileworker"
 	"github.com/cga1123/slugcmplr/queue"
+	"github.com/cga1123/slugcmplr/services/compilesvc/store"
 	"github.com/gorilla/mux"
 	"github.com/twitchtv/twirp"
 )
@@ -23,8 +25,11 @@ type RepoConfig struct {
 }
 
 // Work registers the jobs for the compile service with the worker.
-func Work(m *mux.Router, enq queue.Enqueuer) {
+func Work(m *mux.Router, enq queue.Enqueuer, s store.Querier, repoClient RepoClient, dispatcher Dispatcher) {
 	svc := &worker{
+		repoClient: repoClient,
+		store:      s,
+		dispatcher: dispatcher,
 		compileEnq: compileworker.NewCompileJSONClient("", queue.TwirpEnqueuer(enq)),
 	}
 
@@ -34,8 +39,10 @@ func Work(m *mux.Router, enq queue.Enqueuer) {
 var _ compileworker.Compile = (*worker)(nil)
 
 type worker struct {
+	store      store.Querier
 	repoClient RepoClient
 	compileEnq compileworker.Compile
+	dispatcher Dispatcher
 }
 
 // TriggerForRepository will fetch the .slugcmplr.toml configuration file for
@@ -59,7 +66,7 @@ func (w *worker) TriggerForRepository(ctx context.Context, r *compileworker.Repo
 			TreeSha:    r.TreeSha,
 		})
 		if err != nil {
-			// TODO this should be retryable.
+			// TODO retryable.
 			return nil, fmt.Errorf("failed to enqueue for target: %w", err)
 		}
 	}
@@ -69,8 +76,46 @@ func (w *worker) TriggerForRepository(ctx context.Context, r *compileworker.Repo
 
 // TriggerForTarget will kick-off a compilation for the given target
 // application, using the configured Dispatcher.
-// TODO: This should create the target job in a DB and set up a dispatcher.
-// TODO: A receive token should be minted and traded for a normal token during initial comms.
 func (w *worker) TriggerForTarget(ctx context.Context, r *compileworker.TargetInfo) (*compileworker.JobResponse, error) {
+	if err := w.store.Create(ctx, store.CreateParams{
+		EventID:    r.EventId,
+		Target:     r.Target,
+		CommitSha:  r.CommitSha,
+		TreeSha:    r.TreeSha,
+		Owner:      r.Owner,
+		Repository: r.Repository,
+	}); err != nil {
+		return nil, err // TODO: how can retries be handled gracefully?
+	}
+
+	tok, err := token()
+	if err != nil {
+		// TODO: retryable
+		return nil, fmt.Errorf("failed to create token: %w", err)
+	}
+
+	if err := w.store.CreateToken(ctx, store.CreateTokenParams{
+		EventID: r.EventId,
+		Target:  r.Target,
+		Token:   tok,
+	}); err != nil {
+		// TODO: what if there is already a token that is active?
+		return nil, err
+	}
+
+	if err := w.dispatcher.Dispatch(ctx, tok); err != nil {
+		// TODO: retryable!
+		return nil, err
+	}
+
 	return &compileworker.JobResponse{}, nil
+}
+
+func token() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("error creating token: %w", err)
+	}
+
+	return fmt.Sprintf("%x", b), nil
 }

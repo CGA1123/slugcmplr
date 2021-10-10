@@ -8,6 +8,7 @@ import (
 	"github.com/cga1123/slugcmplr/obs"
 	"github.com/cga1123/slugcmplr/queue/store"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -132,6 +133,17 @@ func (m *InMemory) Enq(_ context.Context, q string, data []byte, _ ...JobOptions
 	})
 
 	return id, nil
+}
+
+func (m *InMemory) Deq(ctx context.Context, w Worker) error {
+	if len(*m) == 0 {
+		return pgx.ErrNoRows
+	}
+
+	j := (*m)[0]
+	*m = (*m)[1:]
+
+	return w.Do(ctx, j)
 }
 
 // PG contains the state required for the PG backed queue implementation.
