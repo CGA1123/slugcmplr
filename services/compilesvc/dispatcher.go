@@ -16,14 +16,6 @@ type Dispatcher interface {
 	Dispatch(context.Context, string) error
 }
 
-// HerokuDispatcher implements the Dispatcher interface backed by detached
-// Heroku dynos.
-type HerokuDispatcher struct {
-	c   *heroku.Service
-	app string
-	url string
-}
-
 // NullDispatcher returns a Dispatcher that always errors.
 func NullDispatcher() Dispatcher {
 	return &nullDispatcher{}
@@ -33,6 +25,14 @@ type nullDispatcher struct{}
 
 func (n *nullDispatcher) Dispatch(_ context.Context, _ string) error {
 	return fmt.Errorf("the null dispatcher does not dispatch any jobs")
+}
+
+// HerokuDispatcher implements the Dispatcher interface backed by detached
+// Heroku dynos.
+type HerokuDispatcher struct {
+	c   *heroku.Service
+	app string
+	url string
 }
 
 // NewHerokuDispatcher creates a Dispatcher which schedules a detached Heroku

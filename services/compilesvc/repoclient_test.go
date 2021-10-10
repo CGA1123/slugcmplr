@@ -2,12 +2,9 @@ package compilesvc_test
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
-	"net"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/cga1123/slugcmplr/services/compilesvc"
@@ -20,21 +17,13 @@ func Test_GitHubDownloadURL(t *testing.T) {
 	t.Parallel()
 
 	var request *http.Request
-	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client, closer := fakeServer(func(w http.ResponseWriter, r *http.Request) {
 		request = r
 
 		w.Header().Add("Location", "https://test.com/archive")
 		w.WriteHeader(302)
-	}))
-	defer s.Close()
-
-	client := s.Client()
-	client.Transport = &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return net.Dial(network, s.Listener.Addr().String())
-		},
-	}
+	})
+	defer closer()
 
 	c := compilesvc.NewGitHubRepoClient(github.NewClient(client))
 
@@ -64,22 +53,14 @@ foo = 1`
 	}
 	for _, tc := range tests {
 		var request *http.Request
-		s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		client, closer := fakeServer(func(w http.ResponseWriter, r *http.Request) {
 			request = r
 
 			content := &github.RepositoryContent{Content: github.String(tc.Toml)}
 
 			json.NewEncoder(w).Encode(content)
-		}))
-		defer s.Close()
-
-		client := s.Client()
-		client.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				return net.Dial(network, s.Listener.Addr().String())
-			},
-		}
+		})
+		defer closer()
 
 		c := compilesvc.NewGitHubRepoClient(github.NewClient(client))
 
