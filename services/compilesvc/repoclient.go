@@ -2,6 +2,7 @@ package compilesvc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -64,10 +65,20 @@ func (g *githubRepoClient) ConfigFile(ctx context.Context, owner, repo, ref stri
 		return nil, fmt.Errorf("error fetching content: %w", err)
 	}
 
-	config := &RepoConfig{}
-	if err := toml.NewDecoder(strings.NewReader(file)).Decode(config); err != nil {
+	return decodeTOML(file)
+}
+
+func decodeTOML(file string) (config *RepoConfig, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.New("recovered panic during decoding")
+		}
+	}()
+
+	conf := &RepoConfig{}
+	if err := toml.NewDecoder(strings.NewReader(file)).Decode(conf); err != nil {
 		return nil, fmt.Errorf("error decoding: %w", err)
 	}
 
-	return config, nil
+	return conf, nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -50,37 +51,53 @@ func Test_GitHubDownloadURL(t *testing.T) {
 func Test_GitHubConfigFile(t *testing.T) {
 	t.Parallel()
 
-	var request *http.Request
-	s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		request = r
+	tableTOML := `[targets]
+foo = 1`
 
-		// TODO: what happens when the .slugcmplr.toml is malformed? Seems like the toml parser panics!
-		// toml := `targets = ["foo-app", "bar-app"]`
-		toml := `[targets]
-		bar = foo`
-		content := &github.RepositoryContent{Content: github.String(toml)}
-
-		json.NewEncoder(w).Encode(content)
-	}))
-	defer s.Close()
-
-	client := s.Client()
-	client.Transport = &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return net.Dial(network, s.Listener.Addr().String())
-		},
+	tests := []struct {
+		Toml    string
+		Error   error
+		Targets []string
+	}{
+		{Toml: `targets = ["foo-app", "bar-app"]`, Targets: []string{"foo-app", "bar-app"}},
+		{Toml: tableTOML, Error: errors.New("recovered panic during decoding")},
 	}
+	for _, tc := range tests {
+		var request *http.Request
+		s := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			request = r
 
-	c := compilesvc.NewGitHubRepoClient(github.NewClient(client))
+			content := &github.RepositoryContent{Content: github.String(tc.Toml)}
 
-	file, err := c.ConfigFile(context.Background(), "CGA1123", "slugcmplr", "abcd1234")
-	require.NoError(t, err, "Should not error fetching config file.")
+			json.NewEncoder(w).Encode(content)
+		}))
+		defer s.Close()
 
-	assert.NotNil(t, file, "Should return a non-nil config file.")
-	assert.NotNil(t, request, "Should have made a request to the server.")
-	assert.Equal(t, []string{"foo-app", "bar-app"}, file.Targets, "Should return parsed targets.")
-	assert.Equal(t, "GET", request.Method, "Should make a GET request.")
-	assert.Equal(t, "api.github.com", request.Host, "Should make a request to the GitHub API.")
-	assert.Equal(t, "/repos/CGA1123/slugcmplr/contents/.slugcmplr.toml?ref=abcd1234", request.URL.String(), "Should make a request to the contents endpoint.")
+		client := s.Client()
+		client.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return net.Dial(network, s.Listener.Addr().String())
+			},
+		}
+
+		c := compilesvc.NewGitHubRepoClient(github.NewClient(client))
+
+		file, err := c.ConfigFile(context.Background(), "CGA1123", "slugcmplr", "abcd1234")
+
+		assert.Equal(t, "GET", request.Method, "Should make a GET request.")
+		assert.Equal(t, "api.github.com", request.Host, "Should make a request to the GitHub API.")
+		assert.Equal(t, "/repos/CGA1123/slugcmplr/contents/.slugcmplr.toml?ref=abcd1234", request.URL.String(), "Should make a request to the contents endpoint.")
+
+		if tc.Error != nil {
+			assert.Error(t, err)
+			assert.ErrorContains(t, err, tc.Error.Error())
+		} else {
+			require.NoError(t, err, "Should not error fetching config file.")
+
+			assert.NotNil(t, file, "Should return a non-nil config file.")
+			assert.NotNil(t, request, "Should have made a request to the server.")
+			assert.Equal(t, []string{"foo-app", "bar-app"}, file.Targets, "Should return parsed targets.")
+		}
+	}
 }
