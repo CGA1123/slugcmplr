@@ -118,6 +118,7 @@ func ScheduledAt(t time.Time) JobOptions {
 }
 
 // InMemory implements an in-memory queue.
+// It is not safe for concurrent access.
 type InMemory []store.QueuedJob
 
 // Enq enqueues the given job to the in-memory queue.
@@ -135,6 +136,7 @@ func (m *InMemory) Enq(_ context.Context, q string, data []byte, _ ...JobOptions
 	return id, nil
 }
 
+// Deq dequeue the given job from the in-memory queue.
 func (m *InMemory) Deq(ctx context.Context, w Worker) error {
 	if len(*m) == 0 {
 		return pgx.ErrNoRows

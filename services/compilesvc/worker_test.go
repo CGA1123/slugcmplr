@@ -60,6 +60,8 @@ func (q *querier) FetchWithToken(_ context.Context, _ string) (store.Compilation
 }
 
 func Test_Triggers(t *testing.T) {
+	t.Parallel()
+
 	m := mux.NewRouter()
 	q := make(queue.InMemory, 0)
 	d := &dispatcher{}

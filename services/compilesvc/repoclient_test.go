@@ -58,7 +58,7 @@ foo = 1`
 
 			content := &github.RepositoryContent{Content: github.String(tc.Toml)}
 
-			json.NewEncoder(w).Encode(content)
+			json.NewEncoder(w).Encode(content) // nolint:errcheck
 		})
 		defer closer()
 

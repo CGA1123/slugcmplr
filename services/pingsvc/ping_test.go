@@ -13,17 +13,10 @@ import (
 	qstore "github.com/cga1123/slugcmplr/queue/store"
 	"github.com/cga1123/slugcmplr/services/pingsvc"
 	"github.com/cga1123/slugcmplr/store"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/twitchtv/twirp"
 )
-
-type message struct {
-	q  string
-	d  []byte
-	id uuid.UUID
-}
 
 func client(s store.Querier, q queue.Enqueuer) (ping.Ping, func()) {
 	m := mux.NewRouter()

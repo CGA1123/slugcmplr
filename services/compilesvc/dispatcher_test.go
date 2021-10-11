@@ -30,7 +30,7 @@ func Test_HerokuDispatcher(t *testing.T) {
 
 		dyno := &heroku.Dyno{}
 
-		json.NewEncoder(w).Encode(dyno)
+		json.NewEncoder(w).Encode(dyno) // nolint:errcheck
 	})
 	defer closer()
 
@@ -55,7 +55,7 @@ func Test_HerokuDispatcher(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	assert.Equal(t, string(expected), string(body), "Request to Heroku containes expected body.")
+	assert.Equal(t, string(expected), string(body), "Request to Heroku contains expected body.")
 }
 
 func Test_NullDispatcher(t *testing.T) {
