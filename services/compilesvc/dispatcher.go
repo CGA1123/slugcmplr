@@ -3,6 +3,7 @@ package compilesvc
 import (
 	"context"
 	"fmt"
+	"os/exec"
 
 	heroku "github.com/heroku/heroku-go/v5"
 )
@@ -56,4 +57,25 @@ func (h *HerokuDispatcher) Dispatch(ctx context.Context, token string) error {
 	}
 
 	return nil
+}
+
+type localDispatcher struct {
+	url string
+}
+
+// NewLocalDispatcher returns a new Dispatcher which runs synchronously on the
+// current machine, in a separate process.
+func NewLocalDispatcher(url string) Dispatcher {
+	return &localDispatcher{url: url}
+}
+
+// Dispatch creates a new local process.
+func (l *localDispatcher) Dispatch(ctx context.Context, token string) error {
+	cmd := exec.CommandContext(ctx, "slugcmplr", "receive")
+	cmd.Env = []string{
+		fmt.Sprintf("SLUGCMPLR_RECEIVE_TOKEN=%v", token),
+		fmt.Sprintf("SLUGCMPLR_BASE_SERVER_URL=%v", l.url),
+	}
+
+	return cmd.Run()
 }
