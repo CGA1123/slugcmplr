@@ -137,7 +137,7 @@ func (m *InMemory) Enq(_ context.Context, q string, data []byte, _ ...JobOptions
 }
 
 // Deq dequeue the given job from the in-memory queue.
-func (m *InMemory) Deq(ctx context.Context, w Worker) error {
+func (m *InMemory) Deq(ctx context.Context, q string, w Worker) error {
 	if len(*m) == 0 {
 		return pgx.ErrNoRows
 	}
@@ -236,7 +236,7 @@ func (q *PG) Deq(ctx context.Context, queue string, worker Worker) error {
 
 	// TODO: `Do` could panic. We should recover gracefully here in order to
 	// avoid killing the whole worker process.
-	if err := worker.Do(ctx, j); err != nil {
+	if err := do(ctx, worker, j); err != nil {
 		span.SetStatus(codes.Error, fmt.Sprintf("error processing job: %v", err))
 
 		retry, backoff := worker.Retryable(j, err)
@@ -270,4 +270,14 @@ func (q *PG) Deq(ctx context.Context, queue string, worker Worker) error {
 	span.SetStatus(codes.Ok, "")
 
 	return nil
+}
+
+func do(ctx context.Context, w Worker, j store.QueuedJob) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic during job execution")
+		}
+	}()
+
+	return w.Do(ctx, j)
 }

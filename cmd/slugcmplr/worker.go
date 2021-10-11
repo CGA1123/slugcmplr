@@ -39,7 +39,7 @@ func workerCmd(verbose bool) *cobra.Command {
 				"SLUGCMPLR_HEROKU_LOGIN",
 				"SLUGCMPLR_HEROKU_TOKEN",
 				"SLUGCMPLR_ADVERTISED_HOST",
-				"SLUGCMPLR_WORKER_APP", // TODO: Need to set up this app and terraform this env var.
+				"SLUGCMPLR_WORKER_APP",
 			)
 			if err != nil {
 				return fmt.Errorf("error fetching environment: %w", err)
