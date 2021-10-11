@@ -30,7 +30,7 @@ func Work(m *mux.Router, enq queue.Enqueuer, s store.Querier, repoClient RepoCli
 		repoClient: repoClient,
 		store:      s,
 		dispatcher: dispatcher,
-		compileEnq: compileworker.NewCompileJSONClient("", queue.TwirpEnqueuer(enq)),
+		enq:        enq,
 	}
 
 	m.PathPrefix("").Handler(compileworker.NewCompileServer(svc, twirp.WithServerInterceptors(obs.TwirpOtelInterceptor())))
@@ -41,7 +41,7 @@ var _ compileworker.Compile = (*worker)(nil)
 type worker struct {
 	store      store.Querier
 	repoClient RepoClient
-	compileEnq compileworker.Compile
+	enq        queue.Enqueuer
 	dispatcher Dispatcher
 }
 
@@ -54,21 +54,27 @@ func (w *worker) TriggerForRepository(ctx context.Context, r *compileworker.Repo
 		return nil, twirp.InternalErrorWith(err)
 	}
 
-	for _, target := range config.Targets {
-		// TODO: Should Enqueuer have a Batch(func(queue.Enqueuer)) error fn
-		// which collects all enqueues and batch saves them?
-		_, err := w.compileEnq.TriggerForTarget(ctx, &compileworker.TargetInfo{
-			Target:     target,
-			EventId:    r.EventId,
-			CommitSha:  r.CommitSha,
-			Owner:      r.Owner,
-			Repository: r.Repository,
-			TreeSha:    r.TreeSha,
-		})
-		if err != nil {
-			// TODO retryable.
-			return nil, fmt.Errorf("failed to enqueue for target: %w", err)
+	if _, err := w.enq.BatchEnq(ctx, func(enq queue.Enqueuer) error {
+		tenq := compileworker.NewCompileJSONClient("", queue.TwirpEnqueuer(enq))
+
+		for _, target := range config.Targets {
+			_, err := tenq.TriggerForTarget(ctx, &compileworker.TargetInfo{
+				Target:     target,
+				EventId:    r.EventId,
+				CommitSha:  r.CommitSha,
+				Owner:      r.Owner,
+				Repository: r.Repository,
+				TreeSha:    r.TreeSha,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to enqueue for target: %w", err)
+			}
 		}
+
+		return nil
+	}); err != nil {
+		// TODO retryable.
+		return nil, fmt.Errorf("error enqueueing targets: %w", err)
 	}
 
 	return &compileworker.JobResponse{}, nil

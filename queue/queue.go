@@ -20,6 +20,7 @@ import (
 // Enqueuer describes the interface for enqueueing a job to a queue.
 type Enqueuer interface {
 	Enq(context.Context, string, []byte, ...JobOptions) (uuid.UUID, error)
+	BatchEnq(context.Context, func(Enqueuer) error) ([]uuid.UUID, error)
 }
 
 // Dequeuer describes the interface for dequeueing a job from a queue.
@@ -136,6 +137,25 @@ func (m *InMemory) Enq(_ context.Context, q string, data []byte, _ ...JobOptions
 	return id, nil
 }
 
+// BatchEnq yields a new enqueuer to f, delaying enqueueing to the initial
+// queue until control returns without and error.
+func (m *InMemory) BatchEnq(_ context.Context, f func(Enqueuer) error) ([]uuid.UUID, error) {
+	batch := make(InMemory, 0)
+
+	if err := f(&batch); err != nil {
+		return nil, fmt.Errorf("error during batching: %w", err)
+	}
+
+	*m = append(*m, batch...)
+
+	ids := make([]uuid.UUID, len(batch))
+	for i, j := range batch {
+		ids[i] = j.ID
+	}
+
+	return ids, nil
+}
+
 // Deq dequeue the given job from the in-memory queue.
 func (m *InMemory) Deq(ctx context.Context, _ string, w Worker) error {
 	if len(*m) == 0 {
@@ -162,6 +182,52 @@ func New(db *pgxpool.Pool) *PG {
 		enqStore: store.New(obs.NewDB(db)),
 		tracer:   otel.Tracer("github.com/CGA1123/slugcmplr/queue"),
 	}
+}
+
+// BatchEnq yields an in-memory enqueuer and delays persisiting new jobs to the
+// database until the yielded queue is returned.
+//
+// The yielded enqueuer is not safe for access by multiple goroutines.
+// The yielded enqueue should not be used outside of f.
+func (q *PG) BatchEnq(ctx context.Context, f func(Enqueuer) error) ([]uuid.UUID, error) {
+	ctx, span := q.tracer.Start(ctx, "batch_enqueue", trace.WithSpanKind(trace.SpanKindInternal))
+	defer span.End()
+
+	batched := make(InMemory, 0)
+
+	if err := f(&batched); err != nil {
+		return nil, fmt.Errorf("error during batching: %w", err)
+	}
+
+	tx, err := q.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error beginning transaction: %w", err)
+	}
+	defer tx.Rollback(ctx) // nolint:errcheck
+
+	jids := make([]uuid.UUID, len(batched))
+	for i, j := range batched {
+		jid, err := q.enqStore.Enqueue(ctx, store.EnqueueParams{
+			QueueName:   j.QueueName,
+			ScheduledAt: j.ScheduledAt,
+			Attempt:     j.Attempt,
+			Data:        j.Data,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("error enqueueing job in batch: %w", err)
+		}
+
+		jids[i] = jid
+	}
+
+	span.SetAttributes(attribute.Int("messages.count", len(batched)))
+	if err := tx.Commit(ctx); err != nil {
+		span.SetStatus(codes.Error, err.Error())
+
+		return nil, err
+	}
+
+	return jids, nil
 }
 
 // Enq enqueues a single job to the queue.

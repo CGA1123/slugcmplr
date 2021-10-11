@@ -9,6 +9,7 @@ import (
 
 	"github.com/cga1123/slugcmplr/queue"
 	"github.com/cga1123/slugcmplr/queue/store"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/assert"
@@ -175,4 +176,59 @@ func Test_PanicRecover(t *testing.T) {
 	})
 
 	assert.NoError(t, q.Deq(ctx, "default", w))
+}
+
+// nolint:paralleltest
+func Test_BatchEnq(t *testing.T) {
+	dbtest(t)
+	db := pool(t)
+
+	defer func() {
+		_, err := db.Exec(context.Background(), "TRUNCATE dead_jobs")
+		require.NoError(t, err, "Truncating should succeed")
+
+		_, err = db.Exec(context.Background(), "TRUNCATE queued_jobs")
+		require.NoError(t, err, "Truncating should succeed")
+	}()
+
+	ctx := context.Background()
+	q := queue.New(db)
+
+	processed := make([]uuid.UUID, 0)
+	w := queue.NoRetryWorker(func(_ context.Context, j store.QueuedJob) error {
+		processed = append(processed, j.ID)
+
+		return nil
+	})
+
+	batcher := func(enq queue.Enqueuer) error {
+		assert.ErrorIs(t, q.Deq(ctx, "default", w), pgx.ErrNoRows)
+
+		_, err := enq.Enq(ctx, "default", []byte("foo"))
+		assert.NoError(t, err)
+		assert.ErrorIs(t, q.Deq(ctx, "default", w), pgx.ErrNoRows)
+
+		_, err = enq.Enq(ctx, "default", []byte("foo"))
+		assert.NoError(t, err)
+		assert.ErrorIs(t, q.Deq(ctx, "default", w), pgx.ErrNoRows)
+
+		_, err = enq.Enq(ctx, "default", []byte("foo"))
+		assert.NoError(t, err)
+		assert.ErrorIs(t, q.Deq(ctx, "default", w), pgx.ErrNoRows)
+
+		return nil
+	}
+
+	jids, err := q.BatchEnq(ctx, batcher)
+	require.NoError(t, err)
+
+	assert.Equal(t, 3, len(jids))
+
+	assert.NoError(t, q.Deq(ctx, "default", w))
+	assert.NoError(t, q.Deq(ctx, "default", w))
+	assert.NoError(t, q.Deq(ctx, "default", w))
+	assert.ErrorIs(t, q.Deq(ctx, "default", w), pgx.ErrNoRows)
+
+	assert.Equal(t, 3, len(processed))
+	assert.Equal(t, jids, processed)
 }
