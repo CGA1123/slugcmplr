@@ -90,8 +90,8 @@ func Test_Triggers(t *testing.T) {
 	assert.Equal(t, 0, len(s.tokens))
 
 	w := queue.TwirpWorker(m)
-	require.NoError(t, q.Deq(context.Background(), w))
-	require.NoError(t, q.Deq(context.Background(), w))
+	require.NoError(t, q.Deq(context.Background(), "default", w))
+	require.NoError(t, q.Deq(context.Background(), "default", w))
 
 	assert.Equal(t, 2, len(s.compilations))
 	assert.Equal(t, 2, len(s.tokens))

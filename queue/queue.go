@@ -137,7 +137,7 @@ func (m *InMemory) Enq(_ context.Context, q string, data []byte, _ ...JobOptions
 }
 
 // Deq dequeue the given job from the in-memory queue.
-func (m *InMemory) Deq(ctx context.Context, q string, w Worker) error {
+func (m *InMemory) Deq(ctx context.Context, _ string, w Worker) error {
 	if len(*m) == 0 {
 		return pgx.ErrNoRows
 	}
