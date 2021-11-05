@@ -14,16 +14,16 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
-	github.com/heroku/heroku-go/v5 v5.3.0
+	github.com/heroku/heroku-go/v5 v5.4.0
 	github.com/jackc/pgconn v1.10.0
 	github.com/jackc/pgx/v4 v4.13.0
 	github.com/kyleconroy/sqlc v1.10.0
 	github.com/otiai10/copy v1.6.0
-	github.com/pelletier/go-toml/v2 v2.0.0-beta.3
+	github.com/pelletier/go-toml/v2 v2.0.0-beta.4
 	github.com/spf13/cobra v1.2.1
 	github.com/stretchr/testify v1.7.1-0.20210427113832-6241f9ab9942
 	github.com/twitchtv/twirp v8.1.0+incompatible
-	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.24.0
+	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.26.1
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.26.1
 	go.opentelemetry.io/otel v1.1.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.1.0
@@ -61,7 +61,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.7.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.16.1 // indirect
 	github.com/aws/smithy-go v1.8.0 // indirect
-	github.com/cenkalti/backoff v2.1.1+incompatible // indirect
+	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.1.1 // indirect
 	github.com/cloudflare/golz4 v0.0.0-20150217214814-ef862a3cdc58 // indirect
 	github.com/cockroachdb/cockroach-go/v2 v2.1.1 // indirect
@@ -121,7 +121,7 @@ require (
 	github.com/mutecomm/go-sqlcipher/v4 v4.4.0 // indirect
 	github.com/nakagami/firebirdsql v0.0.0-20190310045651-3c02a58cfed8 // indirect
 	github.com/neo4j/neo4j-go-driver v1.8.1-0.20200803113522-b626aa943eba // indirect
-	github.com/pborman/uuid v1.2.0 // indirect
+	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pganalyze/pg_query_go/v2 v2.0.5 // indirect
 	github.com/pierrec/lz4/v4 v4.1.8 // indirect
 	github.com/pingcap/errors v0.11.5-0.20201021055732-210aacd3fd99 // indirect
