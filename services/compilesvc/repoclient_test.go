@@ -49,7 +49,7 @@ foo = 1`
 		Targets []string
 	}{
 		{Toml: `targets = ["foo-app", "bar-app"]`, Targets: []string{"foo-app", "bar-app"}},
-		{Toml: tableTOML, Error: errors.New("recovered panic during decoding")},
+		{Toml: tableTOML, Error: errors.New("cannot store a table in a slice")},
 	}
 	for _, tc := range tests {
 		var request *http.Request
