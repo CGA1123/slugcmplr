@@ -14,7 +14,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
-	github.com/heroku/heroku-go/v5 v5.3.0
+	github.com/heroku/heroku-go/v5 v5.4.0
 	github.com/jackc/pgconn v1.10.0
 	github.com/jackc/pgx/v4 v4.13.0
 	github.com/kyleconroy/sqlc v1.10.0
