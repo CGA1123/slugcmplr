@@ -25,11 +25,11 @@ require (
 	github.com/twitchtv/twirp v8.1.0+incompatible
 	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.26.1
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.26.1
-	go.opentelemetry.io/otel v1.1.0
+	go.opentelemetry.io/otel v1.2.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.1.0
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.1.0
 	go.opentelemetry.io/otel/sdk v1.1.0
-	go.opentelemetry.io/otel/trace v1.1.0
+	go.opentelemetry.io/otel/trace v1.2.0
 	golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	google.golang.org/protobuf v1.27.1
