@@ -15,7 +15,7 @@ require (
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
 	github.com/heroku/heroku-go/v5 v5.4.0
-	github.com/jackc/pgconn v1.10.0
+	github.com/jackc/pgconn v1.10.1
 	github.com/jackc/pgx/v4 v4.13.0
 	github.com/kyleconroy/sqlc v1.10.0
 	github.com/otiai10/copy v1.7.0
