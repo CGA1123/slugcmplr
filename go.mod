@@ -16,7 +16,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/heroku/heroku-go/v5 v5.4.0
 	github.com/jackc/pgconn v1.10.1
-	github.com/jackc/pgx/v4 v4.13.0
+	github.com/jackc/pgx/v4 v4.14.0
 	github.com/kyleconroy/sqlc v1.10.0
 	github.com/otiai10/copy v1.7.0
 	github.com/pelletier/go-toml/v2 v2.0.0-beta.4
@@ -98,10 +98,10 @@ require (
 	github.com/jackc/pgerrcode v0.0.0-20201024163028-a0d42d470451 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgproto3/v2 v2.1.1 // indirect
+	github.com/jackc/pgproto3/v2 v2.2.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
-	github.com/jackc/pgtype v1.8.1 // indirect
-	github.com/jackc/puddle v1.1.3 // indirect
+	github.com/jackc/pgtype v1.9.0 // indirect
+	github.com/jackc/puddle v1.2.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
