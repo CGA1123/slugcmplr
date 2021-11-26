@@ -103,6 +103,7 @@ func (b *Buildpack) Compile(ctx context.Context, exports []*Buildpack, build *Bu
 
 	compileCmd := exec.CommandContext(ctx, "bash", "-c", strings.Join(commandParts, ";")) // #nosec G204
 	compileCmd.Env = environ(build)
+	compileCmd.Dir = filepath.Join(build.BuildDir, BuildpacksDir, b.Directory)
 	compileCmd.Stderr, compileCmd.Stdout = build.Stdout, build.Stderr
 	if err := compileCmd.Run(); err != nil {
 		return fmt.Errorf("failed to compile: %w", err)
