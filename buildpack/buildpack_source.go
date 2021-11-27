@@ -89,7 +89,7 @@ func (s *TargzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
-	defer f.Close()
+	defer f.Close() // nolint:errcheck
 
 	if err := Untargz(
 		f,
@@ -109,7 +109,7 @@ func download(ctx context.Context, url string) (string, error) {
 		if err != nil {
 			return fmt.Errorf("failed creating tmpfile: %w", err)
 		}
-		defer f.Close()
+		defer f.Close() // nolint:errcheck
 
 		path = f.Name()
 
