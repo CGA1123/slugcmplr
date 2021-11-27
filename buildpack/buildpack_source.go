@@ -8,10 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/cenkalti/backoff"
 )
 
 // Source described the interface for a buildpack source.
@@ -76,23 +80,19 @@ func (s *TargzSource) Dir() string {
 // Download downloads a GZipped Tar buildpack from the configured URL into Dir()
 // relative to baseDir.
 func (s *TargzSource) Download(ctx context.Context, baseDir string) (*Buildpack, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.URL, nil)
+	path, err := download(ctx, s.URL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build request: %w", err)
+		return nil, err
 	}
 
-	res, err := http.DefaultClient.Do(req)
+	f, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
+		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
-
-	if res.StatusCode > 299 {
-		return nil, fmt.Errorf("non 2XX response code: %v", res.StatusCode)
-	}
-	defer res.Body.Close() // nolint:errcheck
+	defer f.Close()
 
 	if err := Untargz(
-		res.Body,
+		f,
 		filepath.Join(baseDir, s.Dir()),
 		s.github,
 	); err != nil {
@@ -100,6 +100,64 @@ func (s *TargzSource) Download(ctx context.Context, baseDir string) (*Buildpack,
 	}
 
 	return &Buildpack{Directory: s.Dir(), URL: s.RawURL}, nil
+}
+
+func download(ctx context.Context, url string) (string, error) {
+	path := ""
+	attempt := func() error {
+		f, err := os.CreateTemp(os.TempDir(), "")
+		if err != nil {
+			return fmt.Errorf("failed creating tmpfile: %w", err)
+		}
+		defer f.Close()
+
+		path = f.Name()
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return fmt.Errorf("failed to build request: %w", err)
+		}
+
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return fmt.Errorf("failed to make request: %w", err)
+		}
+
+		if res.StatusCode > 299 {
+			return fmt.Errorf("non 2XX response code: %v", res.StatusCode)
+		}
+		defer res.Body.Close() // nolint:errcheck
+
+		if _, err := io.Copy(f, res.Body); err != nil {
+			return fmt.Errorf("error downloading file contents: %w", err)
+		}
+
+		if err := f.Close(); err != nil {
+			return fmt.Errorf("error flushing file: %w", err)
+		}
+
+		return nil
+	}
+	if err := backoff.RetryNotify(attempt, backoffConfig(), backoffNotify); err != nil {
+		return "", fmt.Errorf("error uploading slug: %w", err)
+	}
+
+	return path, nil
+}
+
+func backoffNotify(err error, retryIn time.Duration) {
+	log.Printf("Error downloading buildpack in %s: %s", retryIn, err)
+}
+
+func backoffConfig() backoff.BackOff {
+	return &backoff.ExponentialBackOff{
+		InitialInterval:     100 * time.Millisecond,
+		RandomizationFactor: 0.25,
+		Multiplier:          2.0,
+		MaxInterval:         5 * time.Second,
+		MaxElapsedTime:      5 * time.Minute,
+		Clock:               backoff.SystemClock,
+	}
 }
 
 // Untargz extracts a GZipped Tarball into dir.
