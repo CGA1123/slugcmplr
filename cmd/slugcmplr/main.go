@@ -122,7 +122,15 @@ func netrcClient(cmd outputter) (*heroku.Service, error) {
 	return heroku.NewService(&http.Client{
 		Transport: &heroku.Transport{
 			Username: machine.Login,
-			Password: machine.Password}}), nil
+			Password: machine.Password,
+			Transport: heroku.RoundTripWithRetryBackoff{
+				MaxElapsedTimeSeconds:  15,
+				InitialIntervalSeconds: 1,
+				RandomizationFactor:    0.25,
+				Multiplier:             2.0,
+				MaxIntervalSeconds:     5,
+			},
+		}}), nil
 }
 
 func netrcPath() (string, error) {
