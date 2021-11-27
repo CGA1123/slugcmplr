@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/cenkalti/backoff"
 	heroku "github.com/heroku/heroku-go/v5"
 )
 
@@ -32,7 +34,7 @@ type UploadResult struct {
 }
 
 // Execute creates a new slug resource and uploads the compiled slug to it.
-func (u *UploadCmd) Execute(ctx context.Context, _ Outputter) (*UploadResult, error) {
+func (u *UploadCmd) Execute(ctx context.Context, o Outputter) (*UploadResult, error) {
 	slug, err := u.Heroku.SlugCreate(ctx, u.Application, heroku.SlugCreateOpts{
 		Checksum:                     heroku.String(u.Checksum),
 		Commit:                       heroku.String(u.SourceVersion),
@@ -44,12 +46,26 @@ func (u *UploadCmd) Execute(ctx context.Context, _ Outputter) (*UploadResult, er
 		return nil, fmt.Errorf("failed to create slug: %w", err)
 	}
 
-	if err := UploadBlob(
-		ctx,
-		strings.ToUpper(slug.Blob.Method),
-		slug.Blob.URL,
-		u.Path,
-	); err != nil {
+	attempt := func() error {
+		return UploadBlob(
+			ctx,
+			strings.ToUpper(slug.Blob.Method),
+			slug.Blob.URL,
+			u.Path,
+		)
+	}
+	config := &backoff.ExponentialBackOff{
+		InitialInterval:     100 * time.Millisecond,
+		RandomizationFactor: 0.25,
+		Multiplier:          2.0,
+		MaxInterval:         5 * time.Second,
+		MaxElapsedTime:      5 * time.Minute,
+		Clock:               backoff.SystemClock,
+	}
+	if err := backoff.RetryNotify(attempt, config, func(err error, retryIn time.Duration) {
+		fmt.Fprintf(o.ErrOrStderr(),
+			"Error uploading slug retrying in %s: %s", retryIn, err)
+	}); err != nil {
 		return nil, fmt.Errorf("error uploading slug: %w", err)
 	}
 
