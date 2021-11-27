@@ -14,8 +14,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const defaultImage = "ghcr.io/cga1123/slugcmplr:" + slugcmplr.StackReplacePattern
-
 // Compile contains the configuration required for the compile subcommand.
 type Compile struct {
 	Application   string                 `json:"application"`
@@ -82,8 +80,7 @@ func compile(ctx context.Context, out outputter, h *heroku.Service, c *Compile, 
 }
 
 func compileCmd(verbose bool) *cobra.Command {
-	var cacheDir, buildDir, image string
-	var local bool
+	var cacheDir, buildDir string
 
 	cmd := &cobra.Command{
 		Use:   "compile",
@@ -118,46 +115,19 @@ func compileCmd(verbose bool) *cobra.Command {
 				return fmt.Errorf("failed to decode metadata: %w", err)
 			}
 
-			if local {
-				client, err := netrcClient(output)
-				if err != nil {
-					return err
-				}
-
-				return compile(cmd.Context(), output, client, c, buildDir, cacheDir)
-			}
-
-			netrcpath, err := netrcPath()
+			client, err := netrcClient(output)
 			if err != nil {
-				return fmt.Errorf("failed to find netrc path: %w", err)
+				return err
 			}
 
-			compileDocker := &slugcmplr.CompileDockerCmd{
-				BuildDir:  buildDir,
-				CacheDir:  cacheDir,
-				NetrcPath: netrcpath,
-				Image:     image,
-				Stack:     c.Stack,
-			}
-
-			return compileDocker.Execute(cmd.Context(), output)
+			return compile(cmd.Context(), output, client, c, buildDir, cacheDir)
 		},
 	}
 
 	cmd.Flags().StringVar(&buildDir, "build-dir", "", "The build directory")
 	cmd.MarkFlagRequired("build-dir") // nolint:errcheck
 
-	cmd.Flags().BoolVar(&local, "local", false, "Run compilation locally")
 	cmd.Flags().StringVar(&cacheDir, "cache-dir", "", "The cache directory")
-	cmd.Flags().StringVar(
-		&image,
-		"image",
-		defaultImage,
-		fmt.Sprintf(
-			"Override docker image to use, include %s in order to substitute the stack name",
-			slugcmplr.StackReplacePattern,
-		),
-	)
 
 	return cmd
 }

@@ -17,16 +17,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const (
-	// StackReplacePattern is used to replace the stack name (e.g. heroku-20)
-	// during slugcmplr work.
-	StackReplacePattern = "%stack%"
-
-	// StackNumberReplacePattern is used to replace the stack number (e.g. 20)
-	// during slugcmplr work.
-	StackNumberReplacePattern = "%stack-number%"
-)
-
 // BuildpackReference is a reference to a buildpack, containing its raw URL and
 // Name.
 type BuildpackReference struct {
@@ -80,24 +70,6 @@ func (o *StdOutputter) ErrOrStderr() io.Writer {
 	}
 
 	return o.Err
-}
-
-// StackImage builds an image name for the given stack.
-//
-// stack is expected to be in the form `heroku-N` where N is the stack number
-// (e.g. 18, 20).
-//
-// img may container either `%stack%` or `%stack-number%` which will be
-// replaced by StackImage with the full stack name or only the number
-// accordingly.
-func StackImage(img, stack string) string {
-	stackNumber := strings.TrimPrefix(stack, "heroku-")
-
-	return strings.ReplaceAll(
-		strings.ReplaceAll(img, StackReplacePattern, stack),
-		StackNumberReplacePattern,
-		stackNumber,
-	)
 }
 
 // Commit attempts to return the current resolved HEAD commit for the git

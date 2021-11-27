@@ -24,13 +24,5 @@ jobs:
     - uses: actions/setup-go@v2
       with:
         go-version: 1.17.x
-    - uses: docker/setup-qemu-action@v1
-    - uses: docker/setup-buildx-action@v1
-    - uses: docker/build-push-action@v2
-      with:
-        context: .
-        tags: ghcr.io/cga1123/slugcmplr:testing
-        load: true
-        build-args: STACK=20
     - run: go get -v -d ./...
     - run: go test -v -race -parallel=4 ./...
