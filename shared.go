@@ -150,39 +150,17 @@ func Targz(srcDirPath, dstDirPath string) (*Tarball, error) {
 			return fmt.Errorf("file moved or removed while building tarball: %w", err)
 		}
 
-		link := ""
-		isSymlink := false
-
-		if (info.Mode() & fs.ModeSymlink) != 0 {
-			l, err := os.Readlink(file)
-			if err != nil {
-				return fmt.Errorf("failed to readlink: %w", err)
-			}
-
-			link = l
-			isSymlink = true
-		}
-
-		if !(info.Mode().IsRegular() || isSymlink) {
-			return nil
-		}
-
-		header, err := tar.FileInfoHeader(info, link)
+		header, err := buildHeader(srcDirPath, file, info)
 		if err != nil {
 			return err
 		}
-
-		// Heroku requires GNU Tar format (at least for slugs, maybe not for build sources?)
-		//
-		// https://devcenter.heroku.com/articles/platform-api-deploying-slugs#create-slug-archive
-		header.Format = tar.FormatGNU
-		header.Name = strings.TrimPrefix(strings.TrimPrefix(file, srcDirPath), string(filepath.Separator))
 
 		if err := tw.WriteHeader(header); err != nil {
 			return err
 		}
 
-		if isSymlink {
+		// Only write a body for regular files.
+		if !info.Mode().IsRegular() {
 			return nil
 		}
 
@@ -221,4 +199,50 @@ func Targz(srcDirPath, dstDirPath string) (*Tarball, error) {
 		Path:     dstDirPath,
 		Checksum: fmt.Sprintf("SHA256:%v", hex.EncodeToString(sha.Sum(nil))),
 	}, nil
+}
+
+func buildHeader(srcDirPath, file string, info fs.FileInfo) (*tar.Header, error) {
+	fmode := info.Mode()
+	if !(fmode.IsDir() || fmode.IsRegular() || isSymlink(fmode)) {
+		return nil, fmt.Errorf("unsupported filemode in archive: %v", file)
+	}
+
+	header, err := tar.FileInfoHeader(info, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to infer header: %w", err)
+	}
+
+	// Heroku requires GNU Tar format (at least for slugs, maybe not for build sources?)
+	//
+	// https://devcenter.heroku.com/articles/platform-api-deploying-slugs#create-slug-archive
+	header.Format = tar.FormatGNU
+
+	relativePath, err := filepath.Rel(srcDirPath, file)
+	if err != nil {
+		return nil, fmt.Errorf("error getting relative path: %w", err)
+	}
+
+	// prefix all paths in this archive with ./app, as required by Heroku.
+	header.Name = "./app/" + relativePath
+
+	// Append a trailing / for directories.
+	if info.IsDir() {
+		header.Name += "/"
+	}
+
+	// Set the linkname for symbolic links.
+	if isSymlink(fmode) {
+		link, err := os.Readlink(file)
+		if err != nil {
+			return nil, fmt.Errorf("failed to readlink: %w", err)
+		}
+
+		header.Linkname = link
+	}
+
+	return header, nil
+}
+
+func isSymlink(fm fs.FileMode) bool {
+	return (fm & fs.ModeSymlink) != 0
 }
