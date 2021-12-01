@@ -65,15 +65,6 @@ uploaded to Heroku.
 The `CACHE-DIR` will be used by the buildpacks as their cache argument to speed
 up builds in the future, as per the [Buildpack API](https://devcenter.heroku.com/articles/buildpack-api)
 
-You can optionally pass `--local` to run the compile steps locally, outside of
-any docker image.
-
-You can optionally pass `--image [IMAGE]` to use a custom docker image,
-`slugcmplr` assumes that a version of itself is available at `bin/slugcmplr` in
-the image. You can use the `%stack%` pattern in `IMAGE` to have the stack (e.g.
-`heroku-20`) a part of the image name.
-
-
 #### `release --build-dir [BUILD-DIR]`
 
 In the release step, `slugcmplr` triggers a release of your previously compiled
@@ -86,22 +77,6 @@ You can optionally pass `--app [APPLICATION]` to target an application that is
 different from the one you build from. This will work as long as the
 applications are in the same Heroku team. (This is becuase the slug must be
 accessible to the application).
-
-#### `image --build-dir [BUILD-DIR] --cmd [CMD]`
-
-The `image` subcommand builds a container image using `docker build`. By
-default it uses a Heroku Stack Image (e.g. `heroku/heroku:20`) that is
-compatible with your application.
-
-You can optionally pass `--image [IMAGE]` to use a custom base image. You can
-use the `%stack%` pattern in `IMAGE` to have a stack _number_ (e.g. `20`) as
-part of the image name or tag.
-
-The image is build by copying the contents of your application after building
-into `/app`.
-
-The `CMD` is the command that Heroku will use in its container runtime to start
-your application. (e.g. `bundle exec puma -p $PORT`, `bin/server --port $PORT`).
 
 ## Authentication
 

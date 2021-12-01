@@ -56,7 +56,6 @@ func Cmd() *cobra.Command {
 		prepareCmd,
 		compileCmd,
 		releaseCmd,
-		imageCmd,
 		versionCmd,
 		serverCmd,
 		workerCmd,
