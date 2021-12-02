@@ -49,7 +49,7 @@ func (c *CompileCmd) Execute(ctx context.Context, out Outputter) (*CompileResult
 	for _, bp := range c.Buildpacks {
 		detected, ok, err := bp.Detect(ctx, build)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("buildpack detection failure: %w", err)
 		}
 		if !ok {
 			return nil, fmt.Errorf("buildpack detection failure: %v", bp.URL)

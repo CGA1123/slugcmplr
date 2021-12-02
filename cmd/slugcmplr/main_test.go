@@ -157,12 +157,12 @@ func testDetectFail(t *testing.T) {
 			t.Fatalf("expected logs not to contain evidence of running heroku-buildpack-foo")
 		}
 
-		if !strings.Contains(logs, "buildpack detection failure: https://github.com/CGA1123/heroku-buildpack-detect-fail") {
-			t.Fatalf("expected logs to mention CGA1123/heroku-buildpack-detect-fail is not compatible")
-		}
-
 		if compileErr == nil {
 			t.Fatalf("expected err to be non-nil")
+		}
+
+		if !strings.Contains(compileErr.Error(), "buildpack detection failure: https://github.com/CGA1123/heroku-buildpack-detect-fail") {
+			t.Fatalf("unexpected error: %v", compileErr)
 		}
 	})
 }
