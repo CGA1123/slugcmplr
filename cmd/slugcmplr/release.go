@@ -45,18 +45,18 @@ func releaseCmd(verbose bool) *cobra.Command {
 				return fmt.Errorf("failed to decode release data: %w", err)
 			}
 
-			if application == "" {
-				application = r.Application
+			if application != "" {
+				r.Application = application
 			}
 
-			log(out, "application: %v", application)
+			log(out, "application: %v", r.Application)
 			log(out, "slug: %v", r.Slug)
 
 			step(out, "Releasing slug %v to %v", r.Slug, r.Application)
 
 			releaseCmd := &slugcmplr.ReleaseCmd{
 				Heroku:      h,
-				Application: application,
+				Application: r.Application,
 				SlugID:      r.Slug,
 				Commit:      r.Commit,
 			}
