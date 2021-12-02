@@ -11,33 +11,13 @@ jobs:
     name: Testing
     runs-on: ubuntu-latest
     services:
-      postgres:
-        image: postgres
-        env:
-          POSTGRES_PASSWORD: slugcmplr
-          POSTGRES_USER: slugcmplr
-          POSTGRES_DB: slugcmplr_test
-        ports:
-        - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     steps:
     - uses: actions/checkout@v2.4.0
     - uses: actions/setup-go@v2
       with:
         go-version: 1.17.x
     - run: go get -v -d ./...
-    - run: bin/go-post-compile
-    - run: script/migrate up
-      env:
-        DATABASE_URL: "postgres://slugcmplr:slugcmplr@localhost:5432/slugcmplr_test?sslmode=disable"
     - run: go test -race -timeout=10s -coverprofile=coverage.out -parallel=4 ./...
-      env:
-        SLUGCMPLR_DB: "1"
-        SLUGCMPLR_TEST_DB_URL: "postgres://slugcmplr:slugcmplr@localhost:5432/slugcmplr_test?sslmode=disable"
     - run: go tool cover -html=coverage.out -o coverage.html
     - uses: actions/upload-artifact@v2
       with:
