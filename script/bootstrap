@@ -4,7 +4,5 @@ go get -d ./...
 
 ./script/install-golanci-lint
 ./script/install-goreleaser
-./script/protoc
-./script/sqlc
 ./script/devbuild
 ./script/test

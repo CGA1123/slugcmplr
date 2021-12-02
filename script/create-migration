@@ -1,3 +1,0 @@
-#!/bin/bash
-
-migrate create -dir ./migrations -ext sql $@
