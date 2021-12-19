@@ -10,7 +10,6 @@ jobs:
   test:
     name: Testing
     runs-on: ubuntu-latest
-    services:
     steps:
     - uses: actions/checkout@v2.4.0
     - uses: actions/setup-go@v2
