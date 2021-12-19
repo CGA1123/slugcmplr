@@ -3,14 +3,18 @@
 `slugcmplr` allows you to compile Heroku compatible slugs using official and
 custom buildpacks, in the same manner as the [Heroku Slug Compiler](https://devcenter.heroku.com/articles/slug-compiler)
 
-This can be useful to have more control over the build process for your
-applications and to allow for detaching building and release your images.
+This enables more control over the build process and allows for
+detaching building and releasing your Heroku applications.
 
 ## Install
 
 With the `go` toolchain installed:
 ```bash
+# In order to use this as a library
 go get github.com/cga1123/slugcmplr
+
+# In order to install as a CLI
+go install github.com/cga1123/slugcmplr@latest
 ```
 
 There are also precompiled binaries and their associated checksums are
@@ -25,7 +29,7 @@ available attached to tagged [releases].
 In the prepare step, `slugcmplr` will fetch the metadata required to compile
 your application. It will copy your project `SOURCE-DIR` into `BUILD-DIR/app`.
 
-It will fetch the buildpacks as defined by your Heroku application download and
+It will fetch the buildpacks as defined by your Heroku application, download, and
 decompress them into `BUILD-DIR/buildpacks`. If using official buildpacks (e.g.
 `heroku/go`, `heroku/ruby`) `slugcmplr` will use the same buildpack as
 currently deployed to Heroku's production environment.
@@ -42,20 +46,6 @@ the `compile` step to bootstrap itself.
 In the compile step, `slugcmplr` executes your buildpacks in the specified
 order, outputs your Heroku slug, and uploads it to Heroku for future release.
 
-Precisely, `compile` will bootstrap itself into a build container, mounting the
-following directories into the container:
-
-- `BUILD-DIR` to `/tmp/build`
-- `CACHE-DIR` to `/tmp/cache`
-- `${HOME}/.netrc` or the value of `${NETRC}` to `/tmp/netrc`
-
-`slugcmplr` will select the correct base image based on the stack defined by
-your application, currently one of:
-
-- `heroku/heroku:20-build` for the `heroku-20` stack
-- `heroku/heroku:18-build` for the `heroku-18` stack
-
-
 `compile` will output the slug for your application to `BUILD-DIR/app.tgz`
 
 `compile` will output metadata about the compilation to
@@ -64,6 +54,9 @@ uploaded to Heroku.
 
 The `CACHE-DIR` will be used by the buildpacks as their cache argument to speed
 up builds in the future, as per the [Buildpack API](https://devcenter.heroku.com/articles/buildpack-api)
+
+To guarantee full compatibility, it is recommended to run this step using
+Heroku's build containers. `heroku/heroku:20-build` or `heroku/heroku:18-build`.
 
 #### `release --build-dir [BUILD-DIR]`
 
@@ -74,7 +67,7 @@ It uses the `BUILD-DIR/release.json` file in order to fetch metadata in order
 to create this release.
 
 You can optionally pass `--app [APPLICATION]` to target an application that is
-different from the one you build from. This will work as long as the
+different from the one you built from. This will work as long as the
 applications are in the same Heroku team. (This is becuase the slug must be
 accessible to the application).
 
@@ -131,6 +124,9 @@ inspiration as to what to help with or of any pending discussion/work.
 This project is Codespaces compatible! If you want to get started quickly spin one up.
 
 The `script` directory should help you get going with building and testing.
+
+Some buildpacks are not compatible with `arm`/`arm64` architectures, you may experience
+issues testing `slugcmplr` on an M1 Chip, even if using docker containers.
 
 ---
 
