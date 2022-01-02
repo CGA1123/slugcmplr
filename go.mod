@@ -1,6 +1,3 @@
-// +heroku goVersion go1.17
-// +heroku install ./cmd/...
-
 module github.com/cga1123/slugcmplr
 
 go 1.17
