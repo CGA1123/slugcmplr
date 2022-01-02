@@ -18,7 +18,7 @@ type release struct {
 }
 
 func releaseCmd(verbose bool) *cobra.Command {
-	var buildDir, application string
+	var buildDir, application, commit string
 	cmd := &cobra.Command{
 		Use:   "release",
 		Short: "release a slug",
@@ -47,6 +47,10 @@ func releaseCmd(verbose bool) *cobra.Command {
 
 			if application != "" {
 				r.Application = application
+			}
+
+			if commit != "" {
+				r.Commit = commit
 			}
 
 			log(out, "application: %v", r.Application)
@@ -101,6 +105,7 @@ func releaseCmd(verbose bool) *cobra.Command {
 	cmd.Flags().StringVar(&buildDir, "build-dir", "", "The build directory")
 	cmd.MarkFlagRequired("build-dir") // nolint:errcheck
 
+	cmd.Flags().StringVar(&commit, "commit", "", "Override the commit this release is associated with")
 	cmd.Flags().StringVar(&application, "app", "", "Override the application to release to")
 
 	return cmd

@@ -71,6 +71,9 @@ different from the one you built from. This will work as long as the
 applications are in the same Heroku team. (This is becuase the slug must be
 accessible to the application).
 
+You can optionally pass `--commit [COMMIT]` to associate this release with a
+separate commit from the one used to build this slug initially.
+
 ## Authentication
 
 The `slugcmplr` CLI looks for credentials to `api.heroku.com` in your `.netrc`
