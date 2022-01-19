@@ -7,7 +7,7 @@ require (
 	github.com/bmatcuk/doublestar/v4 v4.0.2
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/go-git/go-git/v5 v5.4.2
-	github.com/heroku/heroku-go/v5 v5.4.0
+	github.com/heroku/heroku-go/v5 v5.4.1
 	github.com/otiai10/copy v1.7.0
 	github.com/spf13/cobra v1.3.0
 )
