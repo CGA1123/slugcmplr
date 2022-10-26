@@ -9,7 +9,7 @@ require (
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/heroku/heroku-go/v5 v5.5.0
 	github.com/otiai10/copy v1.7.0
-	github.com/spf13/cobra v1.6.0
+	github.com/spf13/cobra v1.6.1
 )
 
 require (
