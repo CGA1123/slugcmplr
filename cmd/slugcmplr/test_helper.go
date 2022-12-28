@@ -154,7 +154,7 @@ func waitForBuild(t *testing.T, h *heroku.Service, app *heroku.AppSetup) (*herok
 		t.Logf("(%v) status: %v", name, info.Status)
 
 		if info.Status == "failed" {
-			return info, fmt.Errorf("(%v) failed to setup test app: %v", name, info.FailureMessage)
+			return info, fmt.Errorf("(%v) failed to setup test app: %v", name, *info.FailureMessage)
 		}
 
 		if info.Status == "succeeded" {
