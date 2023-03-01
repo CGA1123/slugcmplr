@@ -3,6 +3,7 @@ package slugcmplr
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -73,7 +74,7 @@ func (p *PrepareCmd) Execute(ctx context.Context, _ Outputter) (*PrepareResult, 
 	}
 
 	if err := copy.Copy(p.SourceDir, appDir, copy.Options{
-		Skip: func(path string) (bool, error) {
+		Skip: func(_ fs.FileInfo, path, _ string) (bool, error) {
 			return ignore.IsIgnored(
 				strings.TrimPrefix(path, p.SourceDir),
 			), nil
