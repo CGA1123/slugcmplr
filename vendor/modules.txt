@@ -137,7 +137,7 @@ github.com/jbenet/go-context/io
 # github.com/kevinburke/ssh_config v1.2.0
 ## explicit
 github.com/kevinburke/ssh_config
-# github.com/otiai10/copy v1.7.0
+# github.com/otiai10/copy v1.9.0
 ## explicit; go 1.14
 github.com/otiai10/copy
 # github.com/pborman/uuid v1.2.1
