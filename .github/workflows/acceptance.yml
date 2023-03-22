@@ -21,7 +21,7 @@ jobs:
       SLUGCMPLR_ACC_HEROKU_EMAIL: ${{ secrets.SLUGCMPLR_HEROKU_EMAIL }}
     steps:
     - uses: actions/checkout@v3
-    - uses: actions/setup-go@v3
+    - uses: actions/setup-go@v4
       with:
         go-version: 1.17.x
     - run: go test -v -race -parallel=4 ./...
