@@ -11,7 +11,7 @@ func versionCmd(verbose bool) *cobra.Command {
 		Use:   "version",
 		Short: "version information",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			out := outputterFromCmd(cmd, verbose).OutOrStdout()
 
 			fmt.Fprintf(out, "Build Version:   %v\n", version)

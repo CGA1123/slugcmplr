@@ -68,8 +68,7 @@ func compile(ctx context.Context, out outputter, h *heroku.Service, c *Compile, 
 		return fmt.Errorf("error encoding metadata: %w", err)
 	}
 
-	// #nosec G306
-	if err := os.WriteFile(
+	if err := os.WriteFile( // #nosec G306
 		filepath.Join(buildDir, "release.json"),
 		b.Bytes(),
 		0644,
@@ -87,7 +86,7 @@ func compileCmd(verbose bool) *cobra.Command {
 		Use:   "compile",
 		Short: "compile the target applications",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			output := outputterFromCmd(cmd, verbose)
 
 			if cacheDir == "" {

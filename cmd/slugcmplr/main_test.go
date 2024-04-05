@@ -38,7 +38,7 @@ func testPrepare(t *testing.T) {
 	t.Parallel()
 
 	withHarness(t, "CGA1123/slugcmplr-fixture-binary",
-		func(t *testing.T, appName, repoDir string, h *heroku.Service) {
+		func(t *testing.T, appName, _ string, _ *heroku.Service) {
 			buildDir, err := os.MkdirTemp("", "CGA1123__slugmplr-fixture-binary_build_")
 			if err != nil {
 				t.Fatalf("failed to create build directory: %v", err)
@@ -136,7 +136,7 @@ func testDetectFail(t *testing.T) {
 
 	configVars := map[string]string{"FOO": "BAR", "BAR": "FOO"}
 
-	withStubPrepare(t, "CGA1123/slugcmplr-fixture-binary", buildpacks, configVars, func(t *testing.T, app, buildDir string) {
+	withStubPrepare(t, "CGA1123/slugcmplr-fixture-binary", buildpacks, configVars, func(t *testing.T, _, buildDir string) {
 		var compileErr error
 		// Compile
 		logBuilder := &strings.Builder{}
@@ -177,7 +177,7 @@ func testSlugIgnore(t *testing.T) {
 
 	configVars := map[string]string{"FOO": "BAR", "BAR": "FOO"}
 
-	withStubPrepare(t, "CGA1123/slugcmplr-fixture-slugignore", buildpacks, configVars, func(t *testing.T, app, buildDir string) {
+	withStubPrepare(t, "CGA1123/slugcmplr-fixture-slugignore", buildpacks, configVars, func(t *testing.T, _, buildDir string) {
 		foundPaths := []string{}
 		expectedPaths := []string{
 			"/README.md",
@@ -237,7 +237,7 @@ func testRails(t *testing.T) {
 func endToEndSmoke(t *testing.T, fixture string) {
 	t.Helper()
 
-	withHarness(t, fixture, func(t *testing.T, app, src string, h *heroku.Service) {
+	withHarness(t, fixture, func(t *testing.T, app, src string, _ *heroku.Service) {
 		pattn := strings.ReplaceAll(fixture, "/", "__") + "_"
 		buildDir, err := os.MkdirTemp("", pattn)
 		if err != nil {

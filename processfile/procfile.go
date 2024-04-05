@@ -10,7 +10,7 @@ import (
 // Procfile contains the definition of a Procfile.
 type Procfile map[string]string
 
-var regex = regexp.MustCompile(`^(?P<process>[a-zA-Z0-9]+): (?P<command>.*)$`)
+var regex = regexp.MustCompile(`^(?P<process>[a-zA-Z0-9_-]+): (?P<command>.*)$`)
 
 // New creates a new Procfile in-memory.
 func New() Procfile {

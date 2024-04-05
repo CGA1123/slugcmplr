@@ -23,7 +23,7 @@ func releaseCmd(verbose bool) *cobra.Command {
 		Use:   "release",
 		Short: "release a slug",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			out := outputterFromCmd(cmd, verbose)
 			h, err := netrcClient(out)

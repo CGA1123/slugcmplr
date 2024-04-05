@@ -119,11 +119,12 @@ func (b *Buildpack) Compile(ctx context.Context, exports []*Buildpack, build *Bu
 func (b *Buildpack) Export(_ context.Context, build *Build) (string, bool, error) {
 	export := filepath.Join(build.BuildDir, BuildpacksDir, b.Directory, "export")
 
-	if _, err := os.Stat(export); err == nil {
-		return export, true, nil
-	} else if os.IsNotExist(err) {
-		return "", false, nil
-	} else {
+	if _, err := os.Stat(export); err != nil {
+		if os.IsNotExist(err) {
+			return "", false, nil
+		}
 		return "", false, err
 	}
+
+	return export, true, nil
 }
