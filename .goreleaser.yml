@@ -20,7 +20,7 @@ archives:
       {{- if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
 checksum:
-  name_template: 'checksums.txt'
+  name_template: "checksums.txt"
 snapshot:
   name_template: "devbuild"
 changelog:
