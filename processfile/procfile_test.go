@@ -86,19 +86,21 @@ func Test_Read(t *testing.T) {
 
 	valid := `web: bin/server
 worker: bundle exec sidekiq -c config/sidekiq.yml
-cron: bin/scheduler`
+cron: bin/scheduler
+my_process: echo "hello"`
 
 	procf, err := processfile.Read(strings.NewReader(valid))
 	if err != nil {
 		t.Fatalf("unexpected error when reading procfile: %v", err)
 	}
 
-	Contain(t, []string{"web", "worker", "cron"}, procf.Processes())
+	Contain(t, []string{"web", "worker", "cron", "my_process"}, procf.Processes())
 
 	expected := map[string]string{
-		"web":    "bin/server",
-		"worker": "bundle exec sidekiq -c config/sidekiq.yml",
-		"cron":   "bin/scheduler",
+		"web":        "bin/server",
+		"worker":     "bundle exec sidekiq -c config/sidekiq.yml",
+		"cron":       "bin/scheduler",
+		"my_process": `echo "hello"`,
 	}
 
 	for proc, cmd := range expected {

@@ -14,6 +14,7 @@ jobs:
   test:
     if: ${{ github.event_name == 'push' || github.event.label.name == 'run-acceptance-tests' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     name: Acceptance
+    container: heroku/heroku:20-build
     runs-on: ubuntu-latest
     env:
       SLUGCMPLR_ACC: "true"
