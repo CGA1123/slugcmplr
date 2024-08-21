@@ -68,8 +68,8 @@ func testPrepare(t *testing.T) {
 					appName, meta.Application)
 			}
 
-			if meta.Stack != "heroku-20" {
-				t.Fatalf("expected meta.Stack to be heroku-20 got %v", meta.Stack)
+			if meta.Stack != "heroku-24" {
+				t.Fatalf("expected meta.Stack to be heroku-24 got %v", meta.Stack)
 			}
 
 			expected := []string{
