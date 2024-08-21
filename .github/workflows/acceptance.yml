@@ -14,15 +14,19 @@ jobs:
   test:
     if: ${{ github.event_name == 'push' || github.event.label.name == 'run-acceptance-tests' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     name: Acceptance
-    container: heroku/heroku:24-build
+    container:
+      # See: actions/checkout#956
+      # `24-build` uses the `heroku` user by default.
+      image: heroku/heroku:24-build
+      options: --user root
     runs-on: ubuntu-latest
     env:
       SLUGCMPLR_ACC: "true"
       SLUGCMPLR_ACC_HEROKU_PASS: ${{ secrets.SLUGCMPLR_HEROKU_API_KEY }}
       SLUGCMPLR_ACC_HEROKU_EMAIL: ${{ secrets.SLUGCMPLR_HEROKU_EMAIL }}
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-go@v3
+    - uses: actions/checkout@v4
+    - uses: actions/setup-go@v5
       with:
         go-version: 1.17.x
     - run: go test -v -race -parallel=4 ./...
