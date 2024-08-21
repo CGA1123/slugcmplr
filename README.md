@@ -56,7 +56,7 @@ The `CACHE-DIR` will be used by the buildpacks as their cache argument to speed
 up builds in the future, as per the [Buildpack API](https://devcenter.heroku.com/articles/buildpack-api)
 
 To guarantee full compatibility, it is recommended to run this step using
-Heroku's build containers. `heroku/heroku:20-build` or `heroku/heroku:18-build`.
+Heroku's build containers. e.g. `heroku/heroku:24-build`.
 
 #### `release --build-dir [BUILD-DIR]`
 
