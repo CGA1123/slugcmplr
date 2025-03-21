@@ -52,7 +52,7 @@ func (m *MetadataCmd) Execute(ctx context.Context, _ Outputter) (*MetadataResult
 
 	return &MetadataResult{
 		ApplicationName: app.Name,
-		Stack:           app.Stack.Name,
+		Stack:           app.BuildStack.Name,
 		Buildpacks:      buildBuildpacks(bpi),
 		ConfigVars:      buildConfigVars(conf),
 		SourceVersion:   commit,
