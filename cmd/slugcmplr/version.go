@@ -14,9 +14,9 @@ func versionCmd(verbose bool) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			out := outputterFromCmd(cmd, verbose).OutOrStdout()
 
-			fmt.Fprintf(out, "Build Version:   %v\n", version)
-			fmt.Fprintf(out, "Build Commit:    %v\n", commit)
-			fmt.Fprintf(out, "Build Date:      %v\n", date)
+			fmt.Fprintf(out, "Build Version:   %v\n", version) // nolint:errcheck
+			fmt.Fprintf(out, "Build Commit:    %v\n", commit)  // nolint:errcheck
+			fmt.Fprintf(out, "Build Date:      %v\n", date)    // nolint:errcheck
 
 			return nil
 		},

@@ -1,6 +1,6 @@
 module github.com/cga1123/slugcmplr
 
-go 1.17
+go 1.24
 
 require (
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d

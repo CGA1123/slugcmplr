@@ -181,7 +181,7 @@ func ok(t *testing.T, err error) {
 		return
 	}
 
-	t.Fatalf(err.Error())
+	t.Fatalf("%s", err)
 }
 
 func withHarness(t *testing.T, fixture string, f func(*testing.T, string, string, *heroku.Service)) {
