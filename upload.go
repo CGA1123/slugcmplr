@@ -63,7 +63,7 @@ func (u *UploadCmd) Execute(ctx context.Context, o Outputter) (*UploadResult, er
 		Clock:               backoff.SystemClock,
 	}
 	if err := backoff.RetryNotify(attempt, config, func(err error, retryIn time.Duration) {
-		fmt.Fprintf(o.ErrOrStderr(),
+		fmt.Fprintf(o.ErrOrStderr(), //nolint:errcheck
 			"Error uploading slug retrying in %s: %s", retryIn, err)
 	}); err != nil {
 		return nil, fmt.Errorf("error uploading slug: %w", err)

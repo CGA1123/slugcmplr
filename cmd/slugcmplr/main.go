@@ -71,15 +71,15 @@ func outputterFromCmd(cmd *cobra.Command, verbose bool) outputter {
 }
 
 func step(cmd outputter, format string, a ...interface{}) {
-	fmt.Fprintf(cmd.OutOrStdout(), "-----> %s\n", fmt.Sprintf(format, a...))
+	fmt.Fprintf(cmd.OutOrStdout(), "-----> %s\n", fmt.Sprintf(format, a...)) // nolint:errcheck
 }
 
 func log(cmd outputter, format string, a ...interface{}) {
-	fmt.Fprintf(cmd.OutOrStdout(), "       %s\n", fmt.Sprintf(format, a...))
+	fmt.Fprintf(cmd.OutOrStdout(), "       %s\n", fmt.Sprintf(format, a...)) // nolint:errcheck
 }
 
 func wrn(cmd outputter, format string, a ...interface{}) {
-	fmt.Fprintf(cmd.ErrOrStderr(), " !!    %s\n", fmt.Sprintf(format, a...))
+	fmt.Fprintf(cmd.ErrOrStderr(), " !!    %s\n", fmt.Sprintf(format, a...)) // nolint:errcheck
 }
 
 func dbg(cmd outputter, format string, a ...interface{}) {
@@ -162,7 +162,7 @@ func outputStreamAttempt(cmd outputter, out io.Writer, stream string, attempt in
 
 	scn := bufio.NewScanner(resp.Body)
 	for scn.Scan() {
-		fmt.Fprintf(out, "%v\n", scn.Text())
+		fmt.Fprintf(out, "%v\n", scn.Text()) // nolint:errcheck
 	}
 
 	return scn.Err()
