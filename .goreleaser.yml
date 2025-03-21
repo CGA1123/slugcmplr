@@ -1,3 +1,5 @@
+version: 2
+
 before:
   hooks:
     - go mod tidy
@@ -22,7 +24,7 @@ archives:
 checksum:
   name_template: "checksums.txt"
 snapshot:
-  name_template: "devbuild"
+  version_template: "devbuild"
 changelog:
   filters:
     exclude:
