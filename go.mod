@@ -9,7 +9,7 @@ require (
 	github.com/go-git/go-git/v5 v5.6.0
 	github.com/heroku/heroku-go/v5 v5.5.0
 	github.com/otiai10/copy v1.9.0
-	github.com/spf13/cobra v1.7.0
+	github.com/spf13/cobra v1.9.1
 )
 
 require (
@@ -30,7 +30,7 @@ require (
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/skeema/knownhosts v1.1.0 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/stretchr/testify v1.7.1-0.20210427113832-6241f9ab9942 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	golang.org/x/crypto v0.3.1-0.20221117191849-2c476679df9a // indirect
