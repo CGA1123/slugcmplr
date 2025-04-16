@@ -3,7 +3,6 @@ package ssh
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -43,6 +42,7 @@ const (
 type KeyboardInteractive struct {
 	User      string
 	Challenge ssh.KeyboardInteractiveChallenge
+	HostKeyCallbackHelper
 }
 
 func (a *KeyboardInteractive) Name() string {
@@ -54,18 +54,19 @@ func (a *KeyboardInteractive) String() string {
 }
 
 func (a *KeyboardInteractive) ClientConfig() (*ssh.ClientConfig, error) {
-	return &ssh.ClientConfig{
+	return a.SetHostKeyCallbackAndAlgorithms(&ssh.ClientConfig{
 		User: a.User,
 		Auth: []ssh.AuthMethod{
 			a.Challenge,
 		},
-	}, nil
+	})
 }
 
 // Password implements AuthMethod by using the given password.
 type Password struct {
 	User     string
 	Password string
+	HostKeyCallbackHelper
 }
 
 func (a *Password) Name() string {
@@ -77,10 +78,10 @@ func (a *Password) String() string {
 }
 
 func (a *Password) ClientConfig() (*ssh.ClientConfig, error) {
-	return &ssh.ClientConfig{
+	return a.SetHostKeyCallbackAndAlgorithms(&ssh.ClientConfig{
 		User: a.User,
 		Auth: []ssh.AuthMethod{ssh.Password(a.Password)},
-	}, nil
+	})
 }
 
 // PasswordCallback implements AuthMethod by using a callback
@@ -88,6 +89,7 @@ func (a *Password) ClientConfig() (*ssh.ClientConfig, error) {
 type PasswordCallback struct {
 	User     string
 	Callback func() (pass string, err error)
+	HostKeyCallbackHelper
 }
 
 func (a *PasswordCallback) Name() string {
@@ -99,16 +101,17 @@ func (a *PasswordCallback) String() string {
 }
 
 func (a *PasswordCallback) ClientConfig() (*ssh.ClientConfig, error) {
-	return &ssh.ClientConfig{
+	return a.SetHostKeyCallbackAndAlgorithms(&ssh.ClientConfig{
 		User: a.User,
 		Auth: []ssh.AuthMethod{ssh.PasswordCallback(a.Callback)},
-	}, nil
+	})
 }
 
 // PublicKeys implements AuthMethod by using the given key pairs.
 type PublicKeys struct {
 	User   string
 	Signer ssh.Signer
+	HostKeyCallbackHelper
 }
 
 // NewPublicKeys returns a PublicKeys from a PEM encoded private key. An
@@ -130,7 +133,7 @@ func NewPublicKeys(user string, pemBytes []byte, password string) (*PublicKeys, 
 // encoded private key. An encryption password should be given if the pemBytes
 // contains a password encrypted PEM block otherwise password should be empty.
 func NewPublicKeysFromFile(user, pemFile, password string) (*PublicKeys, error) {
-	bytes, err := ioutil.ReadFile(pemFile)
+	bytes, err := os.ReadFile(pemFile)
 	if err != nil {
 		return nil, err
 	}
@@ -147,10 +150,10 @@ func (a *PublicKeys) String() string {
 }
 
 func (a *PublicKeys) ClientConfig() (*ssh.ClientConfig, error) {
-	return &ssh.ClientConfig{
+	return a.SetHostKeyCallbackAndAlgorithms(&ssh.ClientConfig{
 		User: a.User,
 		Auth: []ssh.AuthMethod{ssh.PublicKeys(a.Signer)},
-	}, nil
+	})
 }
 
 func username() (string, error) {
@@ -173,6 +176,7 @@ func username() (string, error) {
 type PublicKeysCallback struct {
 	User     string
 	Callback func() (signers []ssh.Signer, err error)
+	HostKeyCallbackHelper
 }
 
 // NewSSHAgentAuth returns a PublicKeysCallback based on a SSH agent, it opens
@@ -207,10 +211,10 @@ func (a *PublicKeysCallback) String() string {
 }
 
 func (a *PublicKeysCallback) ClientConfig() (*ssh.ClientConfig, error) {
-	return &ssh.ClientConfig{
+	return a.SetHostKeyCallbackAndAlgorithms(&ssh.ClientConfig{
 		User: a.User,
 		Auth: []ssh.AuthMethod{ssh.PublicKeysCallback(a.Callback)},
-	}, nil
+	})
 }
 
 // NewKnownHostsCallback returns ssh.HostKeyCallback based on a file based on a
@@ -226,11 +230,26 @@ func (a *PublicKeysCallback) ClientConfig() (*ssh.ClientConfig, error) {
 //	~/.ssh/known_hosts
 //	/etc/ssh/ssh_known_hosts
 func NewKnownHostsCallback(files ...string) (ssh.HostKeyCallback, error) {
-	kh, err := newKnownHosts(files...)
-	return ssh.HostKeyCallback(kh), err
+	kh, err := NewKnownHostsDb(files...)
+	if err != nil {
+		return nil, err
+	}
+	return kh.HostKeyCallback(), nil
 }
 
-func newKnownHosts(files ...string) (knownhosts.HostKeyCallback, error) {
+// NewKnownHostsDb returns knownhosts.HostKeyDB based on a file based on a
+// known_hosts file. http://man.openbsd.org/sshd#SSH_KNOWN_HOSTS_FILE_FORMAT
+//
+// If list of files is empty, then it will be read from the SSH_KNOWN_HOSTS
+// environment variable, example:
+//
+//	/home/foo/custom_known_hosts_file:/etc/custom_known/hosts_file
+//
+// If SSH_KNOWN_HOSTS is not set the following file locations will be used:
+//
+//	~/.ssh/known_hosts
+//	/etc/ssh/ssh_known_hosts
+func NewKnownHostsDb(files ...string) (*knownhosts.HostKeyDB, error) {
 	var err error
 
 	if len(files) == 0 {
@@ -243,7 +262,7 @@ func newKnownHosts(files ...string) (knownhosts.HostKeyCallback, error) {
 		return nil, err
 	}
 
-	return knownhosts.New(files...)
+	return knownhosts.NewDB(files...)
 }
 
 func getDefaultKnownHostsFiles() ([]string, error) {
@@ -285,28 +304,50 @@ func filterKnownHostsFiles(files ...string) ([]string, error) {
 }
 
 // HostKeyCallbackHelper is a helper that provides common functionality to
-// configure HostKeyCallback into a ssh.ClientConfig.
-// Deprecated in favor of SetConfigHostKeyFields (see common.go) which provides
-// a mechanism for also setting ClientConfig.HostKeyAlgorithms for a specific
-// host.
+// configure HostKeyCallback and HostKeyAlgorithms into a ssh.ClientConfig.
 type HostKeyCallbackHelper struct {
 	// HostKeyCallback is the function type used for verifying server keys.
-	// If nil default callback will be create using NewKnownHostsCallback
+	// If nil, a default callback will be created using NewKnownHostsDb
 	// without argument.
 	HostKeyCallback ssh.HostKeyCallback
+
+	// HostKeyAlgorithms is a list of supported host key algorithms that will
+	// be used for host key verification.
+	HostKeyAlgorithms []string
+
+	// fallback allows for injecting the fallback call, which is called
+	// when a HostKeyCallback is not set.
+	fallback func(files ...string) (ssh.HostKeyCallback, error)
 }
 
-// SetHostKeyCallback sets the field HostKeyCallback in the given cfg. If
-// HostKeyCallback is empty a default callback is created using
-// NewKnownHostsCallback.
-func (m *HostKeyCallbackHelper) SetHostKeyCallback(cfg *ssh.ClientConfig) (*ssh.ClientConfig, error) {
-	var err error
+// SetHostKeyCallbackAndAlgorithms sets the field HostKeyCallback and HostKeyAlgorithms in the given cfg.
+// If the host key callback or algorithms is empty it is left empty. It will be handled by the dial method,
+// falling back to knownhosts.
+func (m *HostKeyCallbackHelper) SetHostKeyCallbackAndAlgorithms(cfg *ssh.ClientConfig) (*ssh.ClientConfig, error) {
+	if cfg == nil {
+		cfg = &ssh.ClientConfig{}
+	}
+
 	if m.HostKeyCallback == nil {
-		if m.HostKeyCallback, err = NewKnownHostsCallback(); err != nil {
-			return cfg, err
+		if m.fallback == nil {
+			m.fallback = NewKnownHostsCallback
 		}
+
+		hkcb, err := m.fallback()
+		if err != nil {
+			return nil, fmt.Errorf("cannot create known hosts callback: %w", err)
+		}
+
+		cfg.HostKeyCallback = hkcb
+		cfg.HostKeyAlgorithms = m.HostKeyAlgorithms
+		return cfg, err
 	}
 
 	cfg.HostKeyCallback = m.HostKeyCallback
+	cfg.HostKeyAlgorithms = m.HostKeyAlgorithms
 	return cfg, nil
+}
+
+func (m *HostKeyCallbackHelper) SetHostKeyCallback(cfg *ssh.ClientConfig) (*ssh.ClientConfig, error) {
+	return m.SetHostKeyCallbackAndAlgorithms(cfg)
 }
