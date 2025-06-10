@@ -1,8 +1,12 @@
 package copy
 
 import (
+	"context"
 	"io"
+	"io/fs"
 	"os"
+
+	"golang.org/x/sync/semaphore"
 )
 
 // Options specifies optional actions on copying.
@@ -14,8 +18,14 @@ type Options struct {
 	// OnDirExists can specify what to do when there is a directory already existing in destination.
 	OnDirExists func(src, dest string) DirExistsAction
 
+	// OnErr lets called decide whether or not to continue on particular copy error.
+	OnError func(src, dest string, err error) error
+
 	// Skip can specify which files should be skipped
 	Skip func(srcinfo os.FileInfo, src, dest string) (bool, error)
+
+	// RenameDestination can specify the destination file or dir name if needed to rename.
+	RenameDestination func(src, dest string) (string, error)
 
 	// Specials includes special files to be copied. default false.
 	Specials bool
@@ -55,12 +65,34 @@ type Options struct {
 	// If you want to add some limitation on reading src file,
 	// you can wrap the src and provide new reader,
 	// such as `RateLimitReader` in the test case.
-	WrapReader func(src *os.File) io.Reader
+	WrapReader func(src io.Reader) io.Reader
 
-	intent struct {
-		src  string
-		dest string
-	}
+	// If given, copy.Copy refers to this fs.FS instead of the OS filesystem.
+	// e.g., You can use embed.FS to copy files from embedded filesystem.
+	FS fs.FS
+
+	// NumOfWorkers represents the number of workers used for
+	// concurrent copying contents of directories.
+	// If 0 or 1, it does not use goroutine for copying directories.
+	// Please refer to https://pkg.go.dev/golang.org/x/sync/semaphore for more details.
+	NumOfWorkers int64
+
+	// PreferConcurrent is a function to determine whether or not
+	// to use goroutine for copying contents of directories.
+	// If PreferConcurrent is nil, which is default, it does concurrent
+	// copying for all directories.
+	// If NumOfWorkers is 0 or 1, this function will be ignored.
+	PreferConcurrent func(srcdir, destdir string) (bool, error)
+
+	// Internal use only
+	intent intent
+}
+
+type intent struct {
+	src  string
+	dest string
+	sem  *semaphore.Weighted
+	ctx  context.Context
 }
 
 // SymlinkAction represents what to do on symlink.
@@ -95,6 +127,7 @@ func getDefaultOptions(src, dest string) Options {
 			return Shallow // Do shallow copy
 		},
 		OnDirExists:       nil,                // Default behavior is "Merge".
+		OnError:           nil,                // Default is "accept error"
 		Skip:              nil,                // Do not skip anything
 		AddPermission:     0,                  // Add nothing
 		PermissionControl: PerservePermission, // Just preserve permission
@@ -103,10 +136,7 @@ func getDefaultOptions(src, dest string) Options {
 		PreserveTimes:     false,              // Do not preserve the modification time
 		CopyBufferSize:    0,                  // Do not specify, use default bufsize (32*1024)
 		WrapReader:        nil,                // Do not wrap src files, use them as they are.
-		intent: struct {
-			src  string
-			dest string
-		}{src, dest},
+		intent:            intent{src, dest, nil, nil},
 	}
 }
 
@@ -131,4 +161,14 @@ func assureOptions(src, dest string, opts ...Options) Options {
 	opts[0].intent.src = defopt.intent.src
 	opts[0].intent.dest = defopt.intent.dest
 	return opts[0]
+}
+
+func shouldCopyDirectoryConcurrent(opt Options, srcdir, destdir string) (bool, error) {
+	if opt.NumOfWorkers <= 1 {
+		return false, nil
+	}
+	if opt.PreferConcurrent == nil {
+		return true, nil
+	}
+	return opt.PreferConcurrent(srcdir, destdir)
 }
