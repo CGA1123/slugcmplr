@@ -25,7 +25,7 @@ jobs:
       SLUGCMPLR_ACC_HEROKU_PASS: ${{ secrets.SLUGCMPLR_HEROKU_API_KEY }}
       SLUGCMPLR_ACC_HEROKU_EMAIL: ${{ secrets.SLUGCMPLR_HEROKU_EMAIL }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - uses: actions/setup-go@v5
       with:
         go-version-file: go.mod
