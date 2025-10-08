@@ -6,7 +6,7 @@ require (
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d
 	github.com/bmatcuk/doublestar/v4 v4.9.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
-	github.com/go-git/go-git/v5 v5.16.2
+	github.com/go-git/go-git/v5 v5.16.3
 	github.com/heroku/heroku-go/v5 v5.5.0
 	github.com/otiai10/copy v1.9.0
 	github.com/spf13/cobra v1.9.1
